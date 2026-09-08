@@ -4,7 +4,7 @@
     "slug": "anilink",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/icon.png",
+    "icon": "./assets/anilink_icon_512.png",
     "userInterfaceStyle": "light",
     "splash": { "backgroundColor": "#FAF8F3", "resizeMode": "contain" },
     "ios": {
@@ -24,14 +24,14 @@
       [
         "expo-notifications",
         {
-          "icon": "./assets/icon.png",
+    "icon": "./assets/anilink_icon_512.png",
           "color": "#2E5339",
           "sounds": []
         }
       ]
     ],
     "web": {
-      "favicon": "./assets/favicon.png"
+      "favicon": "./assets/anilink_icon_512.png"
     }
   }
 }

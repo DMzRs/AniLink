@@ -26,11 +26,24 @@ class AniMarketSeeder extends Seeder
             Category::firstOrCreate(['slug' => $c['slug']], $c);
         }
 
+        // Admin
+        User::firstOrCreate(['email' => 'admin@anilink.test'], [
+            'name' => 'AniLink Admin',
+            'password' => Hash::make('password123'),
+            'role' => 'admin',
+            'phone' => '09170000001',
+            'is_verified' => true,
+        ]);
+
         // Demo farmers
         $farmers = [
             ['name' => 'Ka Lito Santos', 'email' => 'lito@anilink.test', 'farm' => 'Santos Family Farm', 'barangay' => 'Brgy. San Isidro', 'municipality' => 'Cabanatuan', 'province' => 'Nueva Ecija', 'verified' => 'approved'],
             ['name' => 'Aling Nena Cruz', 'email' => 'nena@anilink.test', 'farm' => 'Cruz Organic Patch', 'barangay' => 'Brgy. Maligaya', 'municipality' => 'Gapan', 'province' => 'Nueva Ecija', 'verified' => 'approved'],
             ['name' => 'Rodel Mendoza', 'email' => 'rodel@anilink.test', 'farm' => 'Mendoza Rice Co-op', 'barangay' => 'Brgy. Sto. Cristo', 'municipality' => 'Talavera', 'province' => 'Nueva Ecija', 'verified' => 'approved'],
+            // Pending / rejected for verification queue demo (desktop admin)
+            ['name' => 'Jun Dela Cruz', 'email' => 'jun.pending@anilink.test', 'farm' => 'Dela Cruz Harvest', 'barangay' => 'Brgy. San Jose', 'municipality' => 'Aliaga', 'province' => 'Nueva Ecija', 'verified' => 'pending', 'doc' => 'pending_id.jpg'],
+            ['name' => 'Elena Ramos', 'email' => 'elena.pending@anilink.test', 'farm' => 'Ramos Gulay Farm', 'barangay' => 'Brgy. Mabini', 'municipality' => 'San Leonardo', 'province' => 'Nueva Ecija', 'verified' => 'pending'],
+            ['name' => 'Boy Recto', 'email' => 'boy.rejected@anilink.test', 'farm' => 'Recto Fishpond', 'barangay' => 'Brgy. Tabuating', 'municipality' => 'General Tinio', 'province' => 'Nueva Ecija', 'verified' => 'rejected'],
         ];
         $farmerIds = [];
         foreach ($farmers as $f) {
@@ -47,6 +60,7 @@ class AniMarketSeeder extends Seeder
                 'municipality' => $f['municipality'],
                 'province' => $f['province'],
                 'verification_status' => $f['verified'],
+                'verification_doc_path' => $f['doc'] ?? null,
                 'bio' => 'Smallholder farmer from ' . $f['municipality'],
             ]);
             $farmerIds[] = $user->id;
@@ -98,6 +112,54 @@ class AniMarketSeeder extends Seeder
                     'status' => 'available',
                 ]
             );
+        }
+
+        // Seed a few archived/sold_out listings for moderation demo
+        $archivedFarmer = User::where('email', 'boy.rejected@anilink.test')->first();
+        if ($archivedFarmer) {
+            Product::firstOrCreate(['name' => 'Pechay (overpriced)', 'farmer_id' => $archivedFarmer->id], [
+                'category_id' => $gulay->id,
+                'description' => 'Flagged for moderation — price far above regional trend.',
+                'unit_type' => 'kg',
+                'price_per_unit' => 350,
+                'available_quantity' => 5,
+                'harvest_date' => '2026-09-01',
+                'status' => 'archived',
+            ]);
+        }
+
+        // Seed orders for analytics: 7 days of orders, varied statuses
+        $buyer = User::where('email', 'buyer@anilink.test')->first();
+        $biz = User::where('email', 'biz@anilink.test')->first();
+        if ($buyer && Product::count() > 0) {
+            // create only if no orders yet (avoid duplicates on reseed)
+            if (\App\Models\Order::count() === 0) {
+                $productsList = Product::where('status', 'available')->take(3)->get();
+                foreach (range(1, 7) as $daysAgo) {
+                    $date = now()->subDays($daysAgo);
+                    $orderBuyer = $daysAgo % 2 === 0 ? $biz : $buyer;
+                    $prod = $productsList[$daysAgo % $productsList->count()];
+                    $qty = rand(1, 3);
+                    $order = \App\Models\Order::create([
+                        'buyer_id' => $orderBuyer->id,
+                        'farmer_id' => $prod->farmer_id,
+                        'order_type' => $orderBuyer->role === 'buyer_business' && $qty >= 2 ? 'bulk' : 'retail',
+                        'status' => ['pending', 'confirmed', 'preparing', 'ready', 'completed', 'cancelled'][array_rand(['pending','confirmed','preparing','ready','completed','cancelled'])],
+                        'fulfillment_type' => rand(0,1) ? 'delivery' : 'pickup',
+                        'total_amount' => $prod->price_per_unit * $qty + (rand(0,1) ? 45 : 0),
+                        'delivery_address' => 'Brgy. San Isidro, Cabanatuan',
+                        'created_at' => $date,
+                        'updated_at' => $date,
+                    ]);
+                    \App\Models\OrderItem::create([
+                        'order_id' => $order->id,
+                        'product_id' => $prod->id,
+                        'quantity' => $qty,
+                        'unit_price' => $prod->price_per_unit,
+                        'subtotal' => $prod->price_per_unit * $qty,
+                    ]);
+                }
+            }
         }
     }
 }

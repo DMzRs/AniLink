@@ -235,7 +235,7 @@ const s = StyleSheet.create({
   headerSub: { ...typography.caption, color: 'rgba(255,255,255,0.8)', marginTop: 2 },
   headerBadge: { backgroundColor: 'rgba(255,255,255,0.16)', borderRadius: radius.pill, paddingHorizontal: 10, paddingVertical: 5 },
   headerBadgeText: { ...typography.caption, fontFamily: 'Inter_600SemiBold', color: colors.white, fontSize: 11 },
-  summaryCard: { backgroundColor: colors.white, borderRadius: radius.md, borderWidth: 1, borderColor: colors.borderLight, padding: spacing.md, gap: 10, ...{ shadowColor: colors.shadow, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.06, shadowRadius: 12, elevation: 2 } },
+  summaryCard: { backgroundColor: colors.white, borderRadius: radius.md, borderWidth: 1, borderColor: colors.borderLight, padding: spacing.md, gap: 10, boxShadow: '0px 4px 12px rgba(46, 83, 57, 0.06)', elevation: 2 },
   summaryEyebrow: { ...typography.label, color: colors.textMuted, fontSize: 10 },
   summaryRow: { flexDirection: 'row', alignItems: 'center' },
   summaryBox: { flex: 1, gap: 2 },

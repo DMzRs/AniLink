@@ -220,7 +220,7 @@ const s = StyleSheet.create({
   cartBar: {
     position: 'absolute', bottom: 12, left: spacing.md, right: spacing.md, backgroundColor: colors.forestGreen,
     borderRadius: radius.md, padding: 14, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
-    shadowColor: colors.forestGreen, shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.2, shadowRadius: 16, elevation: 8
+    boxShadow: '0px 6px 16px rgba(46, 83, 57, 0.20)', elevation: 8
   },
   cartBarCount: { ...typography.caption, color: 'rgba(255,255,255,0.8)' },
   cartBarTotal: { ...typography.price, color: colors.white },

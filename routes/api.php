@@ -61,11 +61,16 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/buyer/business/quotes', fn () => response()->json(['message' => 'B2B bulk quotes']));
     });
 
-    // Admin routes (verification, moderation, analytics)
+    // Admin routes (verification, moderation, analytics) — real controllers per spec
     Route::middleware('role:admin')->group(function () {
-        Route::get('/admin/verifications', fn () => response()->json(['message' => 'Farmer verification queue']));
-        Route::get('/admin/analytics', fn () => response()->json(['message' => 'Platform analytics - GMV, active farmers']));
-        Route::get('/admin/users', fn () => response()->json(['message' => 'User moderation']));
+        Route::get('/admin/verifications', [\App\Http\Controllers\Api\AdminController::class, 'verifications']);
+        Route::post('/admin/verifications/{farmerProfile}/decision', [\App\Http\Controllers\Api\AdminController::class, 'decideVerification']);
+        Route::get('/admin/users', [\App\Http\Controllers\Api\AdminController::class, 'users']);
+        Route::patch('/admin/users/{user}', [\App\Http\Controllers\Api\AdminController::class, 'moderateUser']);
+        Route::get('/admin/listings', [\App\Http\Controllers\Api\AdminController::class, 'listings']);
+        Route::patch('/admin/listings/{product}', [\App\Http\Controllers\Api\AdminController::class, 'moderateListing']);
+        Route::get('/admin/analytics', [\App\Http\Controllers\Api\AdminController::class, 'analytics']);
+        Route::get('/admin/orders', [\App\Http\Controllers\Api\AdminController::class, 'orders']);
     });
 
     // Expo push token — tied to notifications table

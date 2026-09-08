@@ -102,16 +102,15 @@ export function usePushNotifications() {
 
   // Foreground + tap listeners (spec: new order alerts farmer, status updates buyer)
   useEffect(() => {
+    if (Platform.OS === 'web' || !Device.isDevice) return; // web + simulator: push not supported, avoids expo-notifications web warnings
+
     notificationListener.current = Notifications.addNotificationReceivedListener((notification) => {
       console.log('[Push] Received foreground:', notification.request.content.title, notification.request.content.data);
-      // Optionally refresh notifications table polling here
     });
 
     responseListener.current = Notifications.addNotificationResponseReceivedListener((response) => {
       const data = response.notification.request.content.data;
       console.log('[Push] Tapped:', data);
-      // Navigation could be handled via deep link to orders/{id}
-      // For now, log — AppNavigator can read data.notification_id to open order
     });
 
     return () => {
