@@ -13,7 +13,7 @@ export default function SearchBar({ value, onChange, onFilterPress, activeFilter
           value={value}
           onChangeText={onChange}
           placeholder="Search gulay, prutas, bigas — e.g. 'kamatis'"
-          placeholderTextColor={colors.textMuted}
+          placeholderTextColor="#C2CAD5"
           style={s.input}
           returnKeyType="search"
         />

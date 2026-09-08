@@ -41,6 +41,11 @@ export const api = {
   farmerProducts: (params = {}) => apiFetch(`/farmer/products?${qs(params)}`),
   adjustStock: (id, changeAmount, reason = 'adjustment') => apiFetch(`/products/${id}/stock`, { method: 'PATCH', body: { change_amount: changeAmount, reason } }),
   updateProduct: (id, payload) => apiFetch(`/products/${id}`, { method: 'PUT', body: payload }),
+  createProduct: (payload) => {
+    const isForm = payload instanceof FormData
+    return apiFetch('/products', { method: 'POST', body: payload, auth: true })
+  },
+  categories: () => apiFetch('/categories', { auth: false }),
   orders: (params = {}) => apiFetch(`/orders?${qs(params)}`),
   updateOrderStatus: (id, status, note) => apiFetch(`/orders/${id}/status`, { method: 'PATCH', body: { status, note } }),
 }

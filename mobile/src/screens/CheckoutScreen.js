@@ -82,8 +82,8 @@ export default function CheckoutScreen({ navigation }) {
           <Text style={s.label}>{fulfillment === 'delivery' ? 'Delivery address' : 'Pickup location'}</Text>
           {fulfillment === 'delivery' ? (
             <>
-              <TextInput value={address} onChangeText={setAddress} placeholder="House, street, barangay, municipality" placeholderTextColor={colors.textMuted} style={s.input} multiline />
-              <TextInput value={note} onChangeText={setNote} placeholder="Note to farmer / rider — e.g. 'Gate 2, tawag lang po'" placeholderTextColor={colors.textMuted} style={[s.input, { height: 72 }]} multiline />
+              <TextInput value={address} onChangeText={setAddress} placeholder="House, street, barangay, municipality" placeholderTextColor="#C2CAD5" style={s.input} multiline />
+              <TextInput value={note} onChangeText={setNote} placeholder="Note to farmer / rider — e.g. 'Gate 2, tawag lang po'" placeholderTextColor="#C2CAD5" style={[s.input, { height: 72 }]} multiline />
             </>
           ) : (
             <View style={s.pickupBox}>

@@ -116,7 +116,7 @@ class ProductController extends Controller
             'harvest_date' => ['nullable', 'date', 'before_or_equal:today'],
             'status' => ['nullable', 'in:available,sold_out,archived'],
             'images' => ['nullable', 'array', 'max:5'],
-            'images.*' => ['image', 'max:5120'],
+            'images.*' => ['image', 'mimes:png,jpg,jpeg', 'max:5120'],
         ]);
 
         $validated['farmer_id'] = $request->user()->id;

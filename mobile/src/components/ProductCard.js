@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, Pressable, StyleSheet } from 'react-native';
+import { View, Text, Pressable, StyleSheet, Image } from 'react-native';
 import { colors } from '../theme/colors';
 import { radius, shadow, spacing } from '../theme/spacing';
 import { typography } from '../theme/typography';
@@ -18,14 +18,19 @@ export default function ProductCard({ product, onPress, onQuickAdd }) {
   const lowStock = product.available_quantity <= 5;
   const categoryLabel = typeof product.category === 'string' ? product.category : product.category?.name ?? product.category?.slug ?? '';
   const categoryKey = categoryLabel;
+  const imageUrl = product.image || product.images?.[0]?.url || null;
   return (
     <Pressable onPress={onPress} style={({ pressed }) => [s.card, pressed && s.pressed]}>
-      {/* Image placeholder — low-bandwidth first: no heavy images, just color field */}
+      {/* Low-bandwidth first: show real image if uploaded, else lightweight placeholder */}
       <View style={s.imageWrap}>
-        <View style={s.imagePlaceholder}>
-          <Text style={s.imageEmoji}>{categoryKey === 'Bigas' ? '🌾' : categoryKey === 'Isda' ? '🐟' : categoryKey === 'Prutas' ? '🥭' : categoryKey === 'Herbs' ? '🌿' : '🥬'}</Text>
-          <Text style={s.imageLabel}>{categoryLabel} • Harvest {product.harvest_date}</Text>
-        </View>
+        {imageUrl ? (
+          <Image source={{ uri: imageUrl }} style={s.image} resizeMode="cover" />
+        ) : (
+          <View style={s.imagePlaceholder}>
+            <Text style={s.imageEmoji}>{categoryKey === 'Bigas' ? '🌾' : categoryKey === 'Isda' ? '🐟' : categoryKey === 'Prutas' ? '🥭' : categoryKey === 'Herbs' ? '🌿' : '🥬'}</Text>
+            <Text style={s.imageLabel}>{categoryLabel} • Harvest {product.harvest_date}</Text>
+          </View>
+        )}
         {lowStock && (
           <View style={s.lowStockChip}>
             <Text style={s.lowStockText}>Only {product.available_quantity} left</Text>
@@ -77,6 +82,7 @@ const s = StyleSheet.create({
   },
   pressed: { opacity: 0.96, transform: [{ scale: 0.998 }] },
   imageWrap: { height: 132, backgroundColor: colors.neutralBg, position: 'relative' },
+  image: { width: '100%', height: '100%' },
   imagePlaceholder: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 6 },
   imageEmoji: { fontSize: 28 },
   imageLabel: { ...typography.caption, color: colors.textMuted },

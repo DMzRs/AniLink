@@ -1,13 +1,14 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { View, Text, StyleSheet, FlatList, Pressable, RefreshControl, ActivityIndicator, Alert } from 'react-native';
+import { View, Text, StyleSheet, FlatList, Pressable, RefreshControl, ActivityIndicator, Alert, TextInput, ScrollView, Modal, Image } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import * as ImagePicker from 'expo-image-picker';
 import { colors } from '../theme/colors';
 import { radius, spacing, shadow } from '../theme/spacing';
 import { typography } from '../theme/typography';
 import InventoryStepper from '../components/InventoryStepper';
 import StatusChip from '../components/StatusChip';
 import { mockProducts } from '../data/mockProducts';
-import { getFarmerProducts, adjustStock, updateProduct } from '../api/inventory';
+import { getFarmerProducts, adjustStock, updateProduct, createProduct, getCategories } from '../api/inventory';
 import { getOrders } from '../api/orders';
 import { useAuth } from '../context/AuthContext';
 import { peso } from '../utils/format';
@@ -43,6 +44,13 @@ export default function InventoryScreen({ navigation }) {
   const [usingMock, setUsingMock] = useState(false);
   const [updatingId, setUpdatingId] = useState(null);
 
+  const [showAdd, setShowAdd] = useState(false);
+  const [categories, setCategories] = useState([]);
+  const [form, setForm] = useState({ name: '', category_id: '', unit_type: 'kg', price_per_unit: '', available_quantity: '', harvest_date: '', description: '', min_bulk_quantity: '', bulk_price: '' });
+  const [pickedImages, setPickedImages] = useState([]);
+  const [formError, setFormError] = useState(null);
+  const [creating, setCreating] = useState(false);
+
   const isFarmer = user?.role === 'farmer';
 
   const fetchAll = useCallback(async () => {
@@ -74,6 +82,13 @@ export default function InventoryScreen({ navigation }) {
   }, [token, login]);
 
   useEffect(() => { fetchAll(); }, [fetchAll]);
+
+  useEffect(() => {
+    getCategories().then((res) => {
+      const arr = Array.isArray(res) ? res : (res?.data ?? []);
+      if (arr.length) setCategories(arr);
+    }).catch(() => {});
+  }, []);
 
   const lowStock = useMemo(() => products.filter((p) => Number(p.available_quantity) <= 5 && p.status !== 'archived'), [products]);
 
@@ -135,6 +150,82 @@ export default function InventoryScreen({ navigation }) {
     }
   };
 
+  const pickImage = async () => {
+    const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!perm.granted) { Alert.alert('Permission needed', 'Allow photo access to add harvest image.'); return; }
+    const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], allowsMultipleSelection: true, selectionLimit: 5 - pickedImages.length, quality: 0.7 });
+    if (!result.canceled) {
+      const raw = result.assets.slice(0, 5 - pickedImages.length);
+      const allowed = raw.filter(a => {
+        const mime = (a.mimeType || '').toLowerCase();
+        const name = (a.fileName || a.uri || '').toLowerCase();
+        return mime === 'image/png' || mime === 'image/jpeg' || mime === 'image/jpg' || name.endsWith('.png') || name.endsWith('.jpg') || name.endsWith('.jpeg');
+      });
+      if (allowed.length < raw.length) Alert.alert('Only PNG, JPG, JPEG allowed', 'Other formats were skipped.');
+      setPickedImages(prev => [...prev, ...allowed].slice(0, 5));
+    }
+  };
+
+  const handleCreate = async () => {
+    if (!form.name.trim() || !form.category_id || !form.price_per_unit || !form.available_quantity) {
+      setFormError('Name, category, price and stock are required.');
+      return;
+    }
+    setCreating(true); setFormError(null);
+    try {
+      if (usingMock) {
+        const mock = { id: `tmp-${Date.now()}`, name: form.name.trim(), category: categories.find(c => String(c.id)===String(form.category_id)) || { name: form.category_id }, category_id: form.category_id, unit_type: form.unit_type, price_per_unit: Number(form.price_per_unit), available_quantity: Number(form.available_quantity), harvest_date: form.harvest_date || new Date().toISOString().slice(0,10), description: form.description, min_bulk_quantity: form.min_bulk_quantity ? Number(form.min_bulk_quantity) : null, bulk_price: form.bulk_price ? Number(form.bulk_price) : null, status: 'available', farmer: { name: user?.name || 'You', farm_name: user?.farmerProfile?.farm_name || 'Your Farm', verified: true }, rating: 5, reviews: 0, image: pickedImages[0]?.uri || null };
+        setProducts(prev => [mock, ...prev]);
+        setForm({ name: '', category_id: '', unit_type: 'kg', price_per_unit: '', available_quantity: '', harvest_date: '', description: '', min_bulk_quantity: '', bulk_price: '' });
+        setPickedImages([]);
+        setShowAdd(false);
+        return;
+      }
+      let payload;
+      if (pickedImages.length > 0) {
+        const fd = new FormData();
+        fd.append('name', form.name.trim());
+        fd.append('category_id', String(Number(form.category_id)));
+        fd.append('unit_type', form.unit_type);
+        fd.append('price_per_unit', String(Number(form.price_per_unit)));
+        fd.append('available_quantity', String(Number(form.available_quantity)));
+        if (form.harvest_date) fd.append('harvest_date', form.harvest_date);
+        if (form.description) fd.append('description', form.description);
+        if (form.min_bulk_quantity) fd.append('min_bulk_quantity', String(Number(form.min_bulk_quantity)));
+        if (form.bulk_price) fd.append('bulk_price', String(Number(form.bulk_price)));
+        pickedImages.forEach((asset) => {
+          const uri = asset.uri;
+          const name = asset.fileName || `photo-${Date.now()}.jpg`;
+          const type = asset.mimeType || 'image/jpeg';
+          fd.append('images[]', { uri, name, type });
+        });
+        payload = fd;
+      } else {
+        payload = {
+          name: form.name.trim(),
+          category_id: Number(form.category_id),
+          unit_type: form.unit_type,
+          price_per_unit: Number(form.price_per_unit),
+          available_quantity: Number(form.available_quantity),
+          harvest_date: form.harvest_date || undefined,
+          description: form.description || undefined,
+          min_bulk_quantity: form.min_bulk_quantity ? Number(form.min_bulk_quantity) : undefined,
+          bulk_price: form.bulk_price ? Number(form.bulk_price) : undefined,
+        };
+      }
+      const res = await createProduct(payload);
+      const created = res.data ?? res;
+      setProducts(prev => [created, ...prev]);
+      setForm({ name: '', category_id: '', unit_type: 'kg', price_per_unit: '', available_quantity: '', harvest_date: '', description: '', min_bulk_quantity: '', bulk_price: '' });
+      setShowAdd(false);
+      Alert.alert('Listed!', `${created.name} is now live. Buyer feed will show it.`);
+    } catch (e) {
+      setFormError(e.message);
+    } finally {
+      setCreating(false);
+    }
+  };
+
   if (loading) {
     return (
       <SafeAreaView style={s.safe}>
@@ -153,6 +244,7 @@ export default function InventoryScreen({ navigation }) {
           <Text style={s.headerSub}>{products.length} listings • {lowStock.length} low stock</Text>
         </View>
         <View style={{ flexDirection: 'row', gap: 8, alignItems: 'center' }}>
+          <Pressable onPress={() => setShowAdd(true)} style={s.addBtn}><Text style={s.addBtnText}>+ Add</Text></Pressable>
           <NotificationBell onPress={() => navigation.navigate('Notifications')} />
           <View style={s.headerBadge}><Text style={s.headerBadgeText}>✓ 2FA</Text></View>
         </View>
@@ -186,7 +278,7 @@ export default function InventoryScreen({ navigation }) {
           return (
             <View style={[s.card, isSoldOut && s.cardSoldOut]}>
               <View style={s.cardTop}>
-                <View style={s.thumb}><Text style={s.thumbEmoji}>{item.category?.name === 'Bigas' ? '🌾' : item.category?.name === 'Isda' ? '🐟' : '🥬'}</Text></View>
+                {item.image ? <Image source={{ uri: item.image }} style={s.thumbImage} /> : <View style={s.thumb}><Text style={s.thumbEmoji}>{item.category?.name === 'Bigas' ? '🌾' : item.category?.name === 'Isda' ? '🐟' : '🥬'}</Text></View>}
                 <View style={{ flex: 1, gap: 2 }}>
                   <View style={s.nameRow}>
                     <Text style={s.name} numberOfLines={1}>{item.name}</Text>
@@ -216,8 +308,71 @@ export default function InventoryScreen({ navigation }) {
             </View>
           );
         }}
-        ListEmptyComponent={<View style={s.empty}><Text style={s.emptyText}>No listings yet. Add from web or seed.</Text></View>}
+        ListEmptyComponent={<View style={s.empty}><Text style={s.emptyText}>No listings yet — tap + Add to list your harvest.</Text></View>}
       />
+
+      <Modal visible={showAdd} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => setShowAdd(false)}>
+        <SafeAreaView style={{ flex: 1, backgroundColor: colors.neutralBg }}>
+          <View style={s.modalHeader}>
+            <Pressable onPress={() => setShowAdd(false)} style={s.modalClose}><Text style={s.modalCloseText}>✕</Text></Pressable>
+            <Text style={s.modalTitle}>New harvest listing</Text>
+            <View style={{ width: 36 }} />
+          </View>
+          <ScrollView contentContainerStyle={{ padding: spacing.md, gap: spacing.sm, paddingBottom: 32 }} keyboardShouldPersistTaps="handled">
+            <Text style={s.modalSub}>Farmer creates the listing — same POST /api/products as web. Verified badge after admin approval.</Text>
+            <Text style={s.label}>Product name *</Text>
+            <TextInput value={form.name} onChangeText={v => setForm(s => ({ ...s, name: v }))} placeholder="e.g. Siling Labuyo" placeholderTextColor="#C2CAD5" style={s.input} />
+            <Text style={s.label}>Category *</Text>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8 }}>
+              {categories.map(c => (
+                <Pressable key={c.id} onPress={() => setForm(s => ({ ...s, category_id: String(c.id) }))} style={[s.catChip, String(form.category_id)===String(c.id) && s.catChipActive]}>
+                  <Text style={[s.catChipText, String(form.category_id)===String(c.id) && s.catChipTextActive]}>{c.name}</Text>
+                </Pressable>
+              ))}
+            </ScrollView>
+            <Text style={s.label}>Unit *</Text>
+            <View style={{ flexDirection: 'row', gap: 8 }}>
+              {['kg','sack','piece','bundle','bag','box'].map(u => (
+                <Pressable key={u} onPress={() => setForm(s => ({ ...s, unit_type: u }))} style={[s.unitChip, form.unit_type===u && s.unitChipActive]}>
+                  <Text style={[s.unitChipText, form.unit_type===u && s.unitChipTextActive]}>{u}</Text>
+                </Pressable>
+              ))}
+            </View>
+            <View style={{ flexDirection: 'row', gap: spacing.sm }}>
+              <View style={{ flex: 1 }}><Text style={s.label}>Price / unit *</Text><TextInput value={form.price_per_unit} onChangeText={v=>setForm(s=>({...s, price_per_unit: v}))} placeholder="120" keyboardType="numeric" style={s.input} /></View>
+              <View style={{ flex: 1 }}><Text style={s.label}>Stock *</Text><TextInput value={form.available_quantity} onChangeText={v=>setForm(s=>({...s, available_quantity: v}))} placeholder="18" keyboardType="numeric" style={s.input} /></View>
+            </View>
+            <Text style={s.label}>Harvest date</Text>
+            <TextInput value={form.harvest_date} onChangeText={v=>setForm(s=>({...s, harvest_date: v}))} placeholder="2026-09-06 (YYYY-MM-DD)" style={s.input} />
+            <Text style={s.label}>Description</Text>
+            <TextInput value={form.description} onChangeText={v=>setForm(s=>({...s, description: v}))} placeholder="Hand-harvested, ideal for..." style={[s.input, { height: 72, textAlignVertical: 'top', paddingTop: 10 }]} multiline />
+            <Text style={s.label}>Photos — harvest / field (up to 5)</Text>
+            {pickedImages.length > 0 && (
+              <View style={{ flexDirection: 'row', gap: 8, flexWrap: 'wrap' }}>
+                {pickedImages.map((asset, i) => (
+                  <View key={i} style={s.previewWrap}>
+                    <Image source={{ uri: asset.uri }} style={s.previewImg} />
+                    <Pressable onPress={() => setPickedImages(prev => prev.filter((_, idx) => idx !== i))} style={s.previewRemove}><Text style={s.previewRemoveText}>×</Text></Pressable>
+                  </View>
+                ))}
+              </View>
+            )}
+            <Pressable onPress={pickImage} disabled={pickedImages.length >= 5} style={[s.pickBtn, pickedImages.length >= 5 && { opacity: 0.4 }]}>
+              <Text style={s.pickBtnText}>{pickedImages.length >= 5 ? 'Max 5 photos' : '+ Pick photo (compresses to 5MB)'}</Text>
+            </Pressable>
+            <Text style={s.hint}>Low-bandwidth: placeholder shows until Wi-Fi upload completes.</Text>
+            <View style={{ flexDirection: 'row', gap: spacing.sm }}>
+              <View style={{ flex: 1 }}><Text style={s.label}>Min bulk qty</Text><TextInput value={form.min_bulk_quantity} onChangeText={v=>setForm(s=>({...s, min_bulk_quantity: v}))} placeholder="5" keyboardType="numeric" style={s.input} /></View>
+              <View style={{ flex: 1 }}><Text style={s.label}>Bulk price</Text><TextInput value={form.bulk_price} onChangeText={v=>setForm(s=>({...s, bulk_price: v}))} placeholder="95" keyboardType="numeric" style={s.input} /></View>
+            </View>
+            {formError && <View style={s.formError}><Text style={s.formErrorText}>{formError}</Text></View>}
+            <Pressable onPress={handleCreate} disabled={creating} style={[s.submitBtn, creating && { opacity: 0.6 }]}>
+              {creating ? <ActivityIndicator color={colors.white} /> : <Text style={s.submitText}>List harvest — ₱{form.price_per_unit || '—'} / {form.unit_type}</Text>}
+            </Pressable>
+            <Text style={s.hint}>Photos upload on Wi-Fi later — placeholder until then (low-bandwidth first).</Text>
+          </ScrollView>
+        </SafeAreaView>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -255,6 +410,7 @@ const s = StyleSheet.create({
   cardSoldOut: { borderColor: '#E8C6C6', backgroundColor: '#FFFBFB' },
   cardTop: { flexDirection: 'row', gap: spacing.sm, alignItems: 'center' },
   thumb: { width: 48, height: 48, borderRadius: 12, backgroundColor: colors.forestGreenLight, alignItems: 'center', justifyContent: 'center' },
+  thumbImage: { width: 48, height: 48, borderRadius: 12, backgroundColor: colors.forestGreenLight },
   thumbEmoji: { fontSize: 22 },
   nameRow: { flexDirection: 'row', alignItems: 'center', gap: 8, flexWrap: 'wrap' },
   name: { ...typography.bodyMedium, color: colors.textPrimary, flexShrink: 1 },
@@ -268,6 +424,34 @@ const s = StyleSheet.create({
   soldOutBtnText: { ...typography.caption, fontFamily: 'Poppins_600SemiBold', color: colors.textSecondary },
   soldOutBtnTextActive: { color: colors.white },
   oneTapHint: { ...typography.caption, color: colors.textMuted, fontSize: 11, textAlign: 'center' },
+  addBtn: { backgroundColor: colors.white, borderRadius: radius.pill, paddingHorizontal: 12, height: 32, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.4)' },
+  addBtnText: { ...typography.caption, fontFamily: 'Poppins_600SemiBold', color: colors.forestGreen, fontSize: 12 },
+  modalHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: spacing.md, backgroundColor: colors.white, borderBottomWidth: 1, borderBottomColor: colors.borderLight },
+  modalTitle: { ...typography.heading, color: colors.textPrimary },
+  modalClose: { width: 36, height: 36, borderRadius: 18, backgroundColor: colors.neutralBg, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: colors.border },
+  modalCloseText: { color: colors.textSecondary, fontSize: 16 },
+  modalSub: { ...typography.caption, color: colors.textMuted, lineHeight: 16 },
+  label: { ...typography.caption, fontFamily: 'Poppins_600SemiBold', color: colors.textMuted, fontSize: 11, letterSpacing: 0.5, textTransform: 'uppercase' },
+  input: { backgroundColor: colors.white, borderRadius: radius.md, borderWidth: 1, borderColor: colors.border, paddingHorizontal: 14, height: 44, ...typography.body, color: colors.textPrimary },
+  catChip: { paddingHorizontal: 14, height: 36, borderRadius: radius.pill, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.white, alignItems: 'center', justifyContent: 'center' },
+  catChipActive: { backgroundColor: colors.forestGreen, borderColor: colors.forestGreen },
+  catChipText: { ...typography.caption, fontFamily: 'Poppins_500Medium', color: colors.textSecondary },
+  catChipTextActive: { color: colors.white },
+  unitChip: { flex: 1, height: 36, borderRadius: radius.pill, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.white, alignItems: 'center', justifyContent: 'center' },
+  unitChipActive: { backgroundColor: colors.forestGreen, borderColor: colors.forestGreen },
+  unitChipText: { ...typography.caption, color: colors.textSecondary },
+  unitChipTextActive: { color: colors.white, fontFamily: 'Poppins_600SemiBold' },
+  formError: { backgroundColor: '#FDEDEC', borderRadius: radius.md, padding: 10, borderWidth: 1, borderColor: '#E8C6C6' },
+  formErrorText: { ...typography.caption, color: colors.status.cancelled },
+  submitBtn: { backgroundColor: colors.forestGreen, borderRadius: radius.pill, height: 48, alignItems: 'center', justifyContent: 'center' },
+  submitText: { ...typography.bodyMedium, color: colors.white },
+  hint: { ...typography.caption, color: colors.textMuted, textAlign: 'center', fontSize: 11 },
+  previewWrap: { width: 80, height: 80, borderRadius: radius.sm, overflow: 'hidden', borderWidth: 1, borderColor: colors.border, position: 'relative', backgroundColor: colors.neutralBg },
+  previewImg: { width: '100%', height: '100%' },
+  previewRemove: { position: 'absolute', top: 2, right: 2, width: 20, height: 20, borderRadius: 10, backgroundColor: 'rgba(0,0,0,0.6)', alignItems: 'center', justifyContent: 'center' },
+  previewRemoveText: { color: colors.white, fontSize: 12, lineHeight: 12 },
+  pickBtn: { height: 44, borderRadius: radius.pill, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.white, alignItems: 'center', justifyContent: 'center', borderStyle: 'dashed' },
+  pickBtnText: { ...typography.bodyMedium, color: colors.forestGreen },
   empty: { padding: 32, alignItems: 'center' },
   emptyText: { ...typography.body, color: colors.textMuted, textAlign: 'center' },
 });

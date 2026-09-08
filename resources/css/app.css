@@ -16,6 +16,13 @@
     --color-cancel: #B0413E;
 }
 
+/* Placeholder — very light hint (#C2CAD5 vs input #1A1A1A / #B0B8C3 was still dark) */
+input::placeholder,
+textarea::placeholder {
+    color: #C2CAD5;
+    opacity: 1;
+}
+
 /* Brand accessibility touches */
 ::selection {
     background: #FFF4D6;

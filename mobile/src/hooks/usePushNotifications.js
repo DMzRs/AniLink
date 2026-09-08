@@ -44,6 +44,7 @@ export function usePushNotifications() {
 
     async function register() {
       if (!token || !user) return; // need auth to POST /push-token (per spec tied to user)
+      if (Platform.OS === 'web') return; // web push requires VAPID + service worker, not Expo — use polling fallback (notifications table)
 
       await createAndroidChannels();
 

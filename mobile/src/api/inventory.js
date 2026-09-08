@@ -25,3 +25,11 @@ export async function markSoldOut(productId) {
 export async function restockProduct(productId, qty = 10) {
   return adjustStock(productId, qty, 'restock');
 }
+
+export async function createProduct(payload) {
+  return api.request('/products', { method: 'POST', body: payload, auth: true });
+}
+
+export async function getCategories() {
+  return api.request('/categories');
+}

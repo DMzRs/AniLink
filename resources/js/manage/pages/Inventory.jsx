@@ -21,9 +21,15 @@ function StockStepper({ value, unit, onDelta, loading }) {
 export default function Inventory() {
   const qc = useQueryClient()
   const [updating, setUpdating] = useState(null)
+  const [showAdd, setShowAdd] = useState(false)
+  const [form, setForm] = useState({ name: '', category_id: '', unit_type: 'kg', price_per_unit: '', available_quantity: '', harvest_date: '', description: '', min_bulk_quantity: '', bulk_price: '' })
+  const [imageFiles, setImageFiles] = useState([])
+  const [formError, setFormError] = useState(null)
 
   const { data: prodRes, isLoading, error } = useQuery({ queryKey: ['farmer-products'], queryFn: () => api.farmerProducts() })
   const { data: ordersRes } = useQuery({ queryKey: ['farmer-orders'], queryFn: () => api.orders() })
+  const { data: cats } = useQuery({ queryKey: ['categories'], queryFn: () => api.categories() })
+  const categories = Array.isArray(cats) ? cats : (cats?.data ?? [])
 
   const products = prodRes?.data ?? prodRes ?? []
   const orders = Array.isArray(ordersRes?.data) ? ordersRes.data : (ordersRes ?? [])
@@ -56,6 +62,38 @@ export default function Inventory() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ['farmer-products'] }),
   })
 
+  const create = useMutation({
+    mutationFn: () => {
+      const base = {
+        name: form.name.trim(),
+        category_id: Number(form.category_id),
+        unit_type: form.unit_type,
+        price_per_unit: Number(form.price_per_unit),
+        available_quantity: Number(form.available_quantity),
+        harvest_date: form.harvest_date || undefined,
+        description: form.description || undefined,
+        min_bulk_quantity: form.min_bulk_quantity ? Number(form.min_bulk_quantity) : undefined,
+        bulk_price: form.bulk_price ? Number(form.bulk_price) : undefined,
+      }
+      if (!base.name || !base.category_id || !base.price_per_unit || !base.available_quantity) throw new Error('Name, category, price and stock are required.')
+      if (imageFiles.length > 0) {
+        const fd = new FormData()
+        Object.entries(base).forEach(([k,v]) => { if (v !== undefined) fd.append(k, String(v)) })
+        imageFiles.forEach(f => fd.append('images[]', f))
+        return api.createProduct(fd)
+      }
+      return api.createProduct(base)
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['farmer-products'] })
+      setForm({ name: '', category_id: '', unit_type: 'kg', price_per_unit: '', available_quantity: '', harvest_date: '', description: '', min_bulk_quantity: '', bulk_price: '' })
+      setImageFiles([])
+      setFormError(null)
+      setShowAdd(false)
+    },
+    onError: (e) => setFormError(e.message),
+  })
+
   if (isLoading) {
     return (
       <div className="space-y-6">
@@ -69,7 +107,64 @@ export default function Inventory() {
 
   return (
     <div className="space-y-6">
-      <PageHeader title="Inventory" desc="One-tap stock updates — everything syncs with the AniLink mobile app." />
+      <div className="flex items-start justify-between gap-4">
+        <PageHeader title="Inventory" desc="One-tap stock updates — everything syncs with the AniLink mobile app." />
+        <button onClick={() => setShowAdd(true)} className="shrink-0 inline-flex items-center gap-2 h-10 px-5 rounded-full bg-[#2E5339] text-white text-sm font-semibold hover:bg-[#24412D] shadow-[0_2px_8px_rgba(46,83,57,0.18)]">
+          <span className="w-6 h-6 rounded-full bg-white/20 grid place-items-center text-sm">+</span> Add listing
+        </button>
+      </div>
+
+      {showAdd && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-[#1A1A1A]/40 backdrop-blur-[2px]" onClick={() => setShowAdd(false)} />
+          <div className="relative w-full max-w-[560px] bg-white rounded-[16px] border border-[#E8E2D6] shadow-[0_16px_40px_rgba(26,26,0,0.16)] p-6 space-y-4 max-h-[90vh] overflow-auto">
+            <div className="flex items-center justify-between">
+              <h3 className="text-lg font-semibold">New harvest listing</h3>
+              <button onClick={() => setShowAdd(false)} aria-label="Close" className="w-8 h-8 rounded-full bg-[#FAF8F3] border border-[#E8E2D6] grid place-items-center">×</button>
+            </div>
+            <p className="text-sm text-[#5C5C5C]">Farmer creates the listing — same <code className="px-1 py-0.5 rounded bg-[#E8F0E9] text-[#2E5339]">POST /api/products</code> as mobile. Verified badge shows after admin approval.</p>
+            <div className="grid gap-3">
+              <label className="grid gap-1"><span className="text-xs font-semibold tracking-[0.06em] uppercase text-[#8A8A8A]">Product name *</span><input value={form.name} onChange={e=>setForm(s=>({...s, name: e.target.value}))} placeholder="e.g. Siling Labuyo" className="h-10 rounded-full border border-[#E8E2D6] px-4 placeholder:text-[#C2CAD5] focus:outline-none focus:border-[#2E5339] focus:ring-2 focus:ring-[#E8F0E9]" /></label>
+              <div className="grid grid-cols-2 gap-3">
+                <label className="grid gap-1"><span className="text-xs font-semibold tracking-[0.06em] uppercase text-[#8A8A8A]">Category *</span><select value={form.category_id} onChange={e=>setForm(s=>({...s, category_id: e.target.value}))} className="h-10 rounded-full border border-[#E8E2D6] px-3 bg-white focus:outline-none focus:border-[#2E5339]"><option value="">Select</option>{categories.map(c=><option key={c.id} value={c.id}>{c.name}</option>)}</select></label>
+                <label className="grid gap-1"><span className="text-xs font-semibold tracking-[0.06em] uppercase text-[#8A8A8A]">Unit *</span><select value={form.unit_type} onChange={e=>setForm(s=>({...s, unit_type: e.target.value}))} className="h-10 rounded-full border border-[#E8E2D6] px-3 bg-white"><option value="kg">kg</option><option value="sack">sack</option><option value="piece">piece</option><option value="bundle">bundle</option><option value="bag">bag</option><option value="box">box</option></select></label>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <label className="grid gap-1"><span className="text-xs font-semibold tracking-[0.06em] uppercase text-[#8A8A8A]">Price / unit *</span><input type="number" min="0" step="0.01" value={form.price_per_unit} onChange={e=>setForm(s=>({...s, price_per_unit: e.target.value}))} placeholder="120" className="h-10 rounded-full border border-[#E8E2D6] px-4 placeholder:text-[#C2CAD5]" /></label>
+                <label className="grid gap-1"><span className="text-xs font-semibold tracking-[0.06em] uppercase text-[#8A8A8A]">Stock *</span><input type="number" min="0" step="0.1" value={form.available_quantity} onChange={e=>setForm(s=>({...s, available_quantity: e.target.value}))} placeholder="18" className="h-10 rounded-full border border-[#E8E2D6] px-4 placeholder:text-[#C2CAD5]" /></label>
+              </div>
+              <label className="grid gap-1"><span className="text-xs font-semibold tracking-[0.06em] uppercase text-[#8A8A8A]">Harvest date</span><input type="date" value={form.harvest_date} onChange={e=>setForm(s=>({...s, harvest_date: e.target.value}))} className="h-10 rounded-full border border-[#E8E2D6] px-4" /></label>
+              <label className="grid gap-1"><span className="text-xs font-semibold tracking-[0.06em] uppercase text-[#8A8A8A]">Description</span><textarea value={form.description} onChange={e=>setForm(s=>({...s, description: e.target.value}))} placeholder="Hand-harvested, ideal for..." rows={2} className="rounded-[12px] border border-[#E8E2D6] p-3 placeholder:text-[#C2CAD5] focus:outline-none focus:border-[#2E5339]" /></label>
+              <label className="grid gap-1">
+                <span className="text-xs font-semibold tracking-[0.06em] uppercase text-[#8A8A8A]">Photos — harvest / field (PNG, JPG, JPEG up to 5, 5MB each)</span>
+                <input type="file" multiple accept="image/png, image/jpeg, .png, .jpg, .jpeg" onChange={e=>{ const files = Array.from(e.target.files || []).filter(f=> ['image/png','image/jpeg','image/jpg'].includes(f.type) || /\.(png|jpe?g)$/i.test(f.name)).slice(0,5); if (files.length < (e.target.files||[]).length) alert('Only PNG, JPG, JPEG allowed — other files skipped.'); setImageFiles(files)}} className="block w-full text-sm file:mr-3 file:py-2 file:px-4 file:rounded-full file:border-0 file:bg-[#E8F0E9] file:text-[#2E5339] file:font-semibold file:text-xs border border-[#E8E2D6] rounded-full p-1" />
+                <span className="text-xs text-[#8A8A8A]">Accepted: PNG, JPG, JPEG only. Low-bandwidth: compresses on upload.</span>
+              </label>
+              {imageFiles.length > 0 && (
+                <div className="flex gap-2 flex-wrap">
+                  {imageFiles.map((f,i) => (
+                    <div key={i} className="relative w-20 h-20 rounded-[8px] overflow-hidden border border-[#E8E2D6] bg-[#FAF8F3]">
+                      <img src={URL.createObjectURL(f)} alt={`preview ${i}`} className="w-full h-full object-cover" />
+                      <button type="button" onClick={()=>setImageFiles(prev=>prev.filter((_,idx)=>idx!==i))} className="absolute top-1 right-1 w-5 h-5 rounded-full bg-[#1A1A1A]/70 text-white grid place-items-center text-xs leading-none">×</button>
+                      <span className="absolute bottom-0 left-0 right-0 bg-black/45 text-white text-[10px] px-1 truncate">{f.name}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+              <div className="grid grid-cols-2 gap-3">
+                <label className="grid gap-1"><span className="text-xs font-semibold tracking-[0.06em] uppercase text-[#8A8A8A]">Min bulk qty</span><input type="number" min="1" value={form.min_bulk_quantity} onChange={e=>setForm(s=>({...s, min_bulk_quantity: e.target.value}))} placeholder="5" className="h-10 rounded-full border border-[#E8E2D6] px-4 placeholder:text-[#C2CAD5]" /></label>
+                <label className="grid gap-1"><span className="text-xs font-semibold tracking-[0.06em] uppercase text-[#8A8A8A]">Bulk price</span><input type="number" min="0" step="0.01" value={form.bulk_price} onChange={e=>setForm(s=>({...s, bulk_price: e.target.value}))} placeholder="95" className="h-10 rounded-full border border-[#E8E2D6] px-4 placeholder:text-[#C2CAD5]" /></label>
+              </div>
+              {formError && <div className="rounded-[12px] bg-[#FDEDEC] border border-[#E8C6C6] p-3 text-sm text-[#B0413E]">{formError}</div>}
+              <div className="flex gap-3 pt-1">
+                <button onClick={()=>setShowAdd(false)} className="flex-1 h-10 rounded-full border border-[#E8E2D6] bg-white font-medium hover:bg-[#FAF8F3]">Cancel</button>
+                <button disabled={create.isPending} onClick={()=>create.mutate()} className="flex-1 h-10 rounded-full bg-[#2E5339] text-white font-semibold hover:bg-[#24412D] disabled:opacity-60">{create.isPending ? 'Listing…' : 'List harvest'}</button>
+              </div>
+              <p className="text-xs text-[#8A8A8A] text-center">Photos can be added after — listing shows placeholder until Wi-Fi upload (low-bandwidth first).</p>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Sales summary */}
       <div className="grid md:grid-cols-3 gap-4">
@@ -125,7 +220,7 @@ export default function Inventory() {
                   <tr key={p.id} className={`${soldOut ? 'bg-[#FFFBFB]' : 'hover:bg-[#FAF8F3]/60'} transition`}>
                     <td className="px-4 py-3">
                       <div className="font-medium flex items-center gap-2">
-                        <span className="w-8 h-8 rounded-lg bg-[#E8F0E9] flex items-center justify-center text-sm shrink-0" aria-hidden="true">🥬</span>
+                        {p.image ? <img src={p.image} alt={p.name} className="w-8 h-8 rounded-lg object-cover border border-[#E8E2D6] shrink-0" loading="lazy" /> : <span className="w-8 h-8 rounded-lg bg-[#E8F0E9] flex items-center justify-center text-sm shrink-0" aria-hidden="true">🥬</span>}
                         {p.name} {p.status === 'archived' && <Chip tone="archived" className="!py-0.5">Archived</Chip>}
                       </div>
                       <div className="text-xs text-[#8A8A8A] mt-0.5">Harvest {p.harvest_date || '—'} · {p.status.replace('_', ' ')}</div>

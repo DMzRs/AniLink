@@ -7,13 +7,15 @@ export const getAuthToken = () => authToken;
 
 async function request(path, { method = 'GET', body, headers = {}, auth = false } = {}) {
   const url = `${API_URL}${path}`;
-  const h = { 'Content-Type': 'application/json', Accept: 'application/json', ...headers };
+  const isForm = body instanceof FormData;
+  const h = { Accept: 'application/json', ...headers };
+  if (!isForm) h['Content-Type'] = 'application/json';
   if (auth && authToken) h.Authorization = `Bearer ${authToken}`;
 
   const res = await fetch(url, {
     method,
     headers: h,
-    body: body ? JSON.stringify(body) : undefined,
+    body: body ? (isForm ? body : JSON.stringify(body)) : undefined,
   });
 
   const text = await res.text();
