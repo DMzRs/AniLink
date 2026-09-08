@@ -28,5 +28,5 @@ export default function StatusChip({ status }) {
 
 const s = StyleSheet.create({
   chip: { borderRadius: radius.pill, paddingHorizontal: 10, paddingVertical: 5, alignSelf: 'flex-start' },
-  text: { ...typography.caption, fontFamily: 'Inter_600SemiBold', color: colors.white, fontSize: 11, letterSpacing: 0.3 },
+  text: { ...typography.caption, fontFamily: 'Poppins_600SemiBold', color: colors.white, fontSize: 11, letterSpacing: 0.3 },
 });

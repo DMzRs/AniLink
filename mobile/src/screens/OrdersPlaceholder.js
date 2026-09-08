@@ -24,5 +24,5 @@ const s = StyleSheet.create({
   cardText: { ...typography.body, color: colors.textMuted, lineHeight: 20 },
   chips: { flexDirection: 'row', gap: 8, marginTop: 8 },
   chip: { borderRadius: 999, paddingHorizontal: 10, paddingVertical: 6 },
-  chipText: { color: colors.white, fontFamily: 'Inter_600SemiBold', fontSize: 12 },
+  chipText: { color: colors.white, fontFamily: 'Poppins_600SemiBold', fontSize: 12 },
 });

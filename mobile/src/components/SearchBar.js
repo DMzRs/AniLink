@@ -40,5 +40,5 @@ const s = StyleSheet.create({
   },
   filterText: { ...typography.bodyMedium, color: colors.white },
   dot: { backgroundColor: colors.harvestGold, borderRadius: 999, width: 18, height: 18, alignItems: 'center', justifyContent: 'center' },
-  dotText: { color: colors.textPrimary, fontFamily: 'Inter_700Bold', fontSize: 11, lineHeight: 14 },
+  dotText: { color: colors.textPrimary, fontFamily: 'Poppins_700Bold', fontSize: 11, lineHeight: 14 },
 });

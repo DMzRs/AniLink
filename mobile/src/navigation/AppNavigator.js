@@ -31,7 +31,7 @@ function TabIcon({ label, focused }) {
       }}>
         <Text style={{ color: focused ? colors.white : colors.textMuted, fontSize: 14 }}>{icons[label] ?? '•'}</Text>
       </View>
-      <Text style={{ ...typography.caption, fontSize: 10, color: focused ? colors.forestGreen : colors.textMuted, fontFamily: focused ? 'Inter_600SemiBold' : 'Inter_400Regular' }}>{label}</Text>
+      <Text style={{ ...typography.caption, fontSize: 10, color: focused ? colors.forestGreen : colors.textMuted, fontFamily: focused ? 'Poppins_600SemiBold' : 'Poppins_400Regular' }}>{label}</Text>
     </View>
   );
 }

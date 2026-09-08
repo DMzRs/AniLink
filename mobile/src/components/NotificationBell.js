@@ -50,5 +50,5 @@ const s = StyleSheet.create({
     minWidth: 18, height: 18, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 4,
     borderWidth: 1, borderColor: colors.white,
   },
-  badgeText: { ...typography.caption, fontFamily: 'Inter_700Bold', color: colors.textPrimary, fontSize: 10, lineHeight: 12 },
+  badgeText: { ...typography.caption, fontFamily: 'Poppins_700Bold', color: colors.textPrimary, fontSize: 10, lineHeight: 12 },
 });

@@ -57,7 +57,7 @@ const s = StyleSheet.create({
   btnPrimary: { backgroundColor: colors.forestGreen },
   btnPressed: { backgroundColor: colors.borderLight },
   btnPressedPrimary: { opacity: 0.92 },
-  btnText: { fontSize: 20, lineHeight: 20, color: colors.textPrimary, fontFamily: 'Inter_600SemiBold' },
+  btnText: { fontSize: 20, lineHeight: 20, color: colors.textPrimary, fontFamily: 'Poppins_600SemiBold' },
   btnTextPrimary: { color: colors.white },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 8, minWidth: 72 },
   value: { ...typography.heading, color: colors.textPrimary, fontSize: 17 },

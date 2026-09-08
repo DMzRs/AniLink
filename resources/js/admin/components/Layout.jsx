@@ -12,7 +12,7 @@ export default function Layout({ children }) {
   const { user, logout } = useAuth()
   const navgo = useNavigate()
   return (
-    <div className="min-h-screen bg-[#FAF8F3] text-[#1A1A1A] font-[Inter] flex">
+    <div className="min-h-screen bg-[#FAF8F3] text-[#1A1A1A] font-sans flex">
       {/* Sidebar — Forest Green primary, desktop not mobile */}
       <aside className="w-[260px] shrink-0 bg-[#2E5339] text-white flex flex-col sticky top-0 h-screen">
         <div className="px-6 py-6 border-b border-white/10">

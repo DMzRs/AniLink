@@ -76,7 +76,7 @@ const s = StyleSheet.create({
   headerTitle: { ...typography.heading, color: colors.white },
   headerSub: { ...typography.caption, color: 'rgba(255,255,255,0.8)' },
   offlineBanner: { backgroundColor: colors.harvestGoldLight, margin: spacing.md, borderRadius: radius.md, padding: 8, borderWidth: 1, borderColor: '#F2D98A' },
-  offlineText: { ...typography.caption, color: colors.harvestGoldDark, textAlign: 'center', fontFamily: 'Inter_600SemiBold' },
+  offlineText: { ...typography.caption, color: colors.harvestGoldDark, textAlign: 'center', fontFamily: 'Poppins_600SemiBold' },
   card: { backgroundColor: colors.white, borderRadius: radius.md, borderWidth: 1, borderColor: colors.borderLight, padding: spacing.md, gap: 6 },
   head: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   orderId: { ...typography.bodyMedium, color: colors.textPrimary },

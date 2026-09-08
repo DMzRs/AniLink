@@ -84,12 +84,12 @@ const s = StyleSheet.create({
     position: 'absolute', top: spacing.sm, left: spacing.sm,
     backgroundColor: colors.white, borderRadius: radius.pill, paddingHorizontal: 8, paddingVertical: 4, borderWidth: 1, borderColor: colors.border
   },
-  lowStockText: { ...typography.caption, fontFamily: 'Inter_600SemiBold', color: colors.status.cancelled, fontSize: 11 },
+  lowStockText: { ...typography.caption, fontFamily: 'Poppins_600SemiBold', color: colors.status.cancelled, fontSize: 11 },
   bulkRibbon: {
     position: 'absolute', bottom: spacing.sm, right: spacing.sm,
     backgroundColor: colors.harvestGoldLight, borderRadius: radius.pill, paddingHorizontal: 8, paddingVertical: 4, borderWidth: 1, borderColor: '#F2D98A'
   },
-  bulkRibbonText: { ...typography.caption, fontFamily: 'Inter_600SemiBold', color: colors.harvestGoldDark, fontSize: 11 },
+  bulkRibbonText: { ...typography.caption, fontFamily: 'Poppins_600SemiBold', color: colors.harvestGoldDark, fontSize: 11 },
   body: { padding: spacing.sm, gap: 4 },
   name: { ...typography.headingSmall, color: colors.textPrimary },
   price: { ...typography.price, color: colors.forestGreen },
@@ -97,11 +97,11 @@ const s = StyleSheet.create({
   farmer: { ...typography.caption, color: colors.textSecondary, flexShrink: 1 },
   badge: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: colors.forestGreenLight, borderRadius: radius.pill, paddingHorizontal: 6, paddingVertical: 2 },
   badgeDot: { color: colors.forestGreen, fontSize: 8, marginTop: -1 },
-  badgeText: { ...typography.caption, fontFamily: 'Inter_600SemiBold', color: colors.forestGreen, fontSize: 10 },
+  badgeText: { ...typography.caption, fontFamily: 'Poppins_600SemiBold', color: colors.forestGreen, fontSize: 10 },
   location: { ...typography.caption, color: colors.textMuted },
   metaRow: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 2 },
   rating: { ...typography.caption, color: colors.textMuted },
-  fresh: { ...typography.caption, color: colors.forestGreenSoft, fontFamily: 'Inter_600SemiBold' },
+  fresh: { ...typography.caption, color: colors.forestGreenSoft, fontFamily: 'Poppins_600SemiBold' },
   quickAdd: {
     margin: spacing.sm, marginTop: 0, backgroundColor: colors.forestGreen, borderRadius: radius.pill, height: 44, alignItems: 'center', justifyContent: 'center'
   },

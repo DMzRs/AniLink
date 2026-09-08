@@ -18,5 +18,5 @@ const s = StyleSheet.create({
   row: { flexDirection: 'row', gap: 8, flexWrap: 'wrap' },
   badge: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: colors.white, borderWidth: 1, borderColor: colors.borderLight, borderRadius: radius.pill, paddingHorizontal: 10, paddingVertical: 6 },
   dot: { color: colors.forestGreen, fontSize: 10 },
-  text: { ...typography.caption, color: colors.textSecondary, fontFamily: 'Inter_500Medium' },
+  text: { ...typography.caption, color: colors.textSecondary, fontFamily: 'Poppins_500Medium' },
 });
