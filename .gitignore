@@ -1,0 +1,92 @@
+# Laravel
+/vendor
+/node_modules
+/public/build
+/public/fonts-manifest.dev.json
+/public/hot
+/public/storage
+/storage/*.key
+/storage/pail
+/storage/framework/cache/data/*
+/storage/framework/sessions/*
+/storage/framework/views/*
+/storage/logs/*.log
+/bootstrap/cache/*.php
+.env
+.env.backup
+.env.production
+.phpunit.result.cache
+.phpunit.cache
+.phpactor.json
+Homestead.json
+Homestead.yaml
+auth.json
+_ide_helper.php
+_ide_helper_models.php
+.phpstorm.meta.php
+
+# Database (local sqlite)
+database/*.sqlite
+database/*.sqlite-journal
+database/*.db
+
+# Node / Vite
+npm-debug.log
+yarn-debug.log
+yarn-error.log
+.pnp.*
+
+# Expo Mobile (mobile/ is inside this repo)
+mobile/node_modules
+mobile/.expo
+mobile/.expo-shared
+mobile/dist
+mobile/dist-test
+mobile/web-build
+mobile/expo-env.d.ts
+# Expo native / EAS
+mobile/.kotlin
+mobile/ios
+mobile/android
+mobile/*.jks
+mobile/*.p8
+mobile/*.p12
+mobile/*.key
+mobile/*.mobileprovision
+mobile/*.orig.*
+*.pem
+
+# Metro / bundler
+.metro-health-check*
+.expo
+web-build
+
+# Env local
+.env.local
+.env*.local
+mobile/.env*.local
+
+# Typescript
+*.tsbuildinfo
+
+# OS
+.DS_Store
+Thumbs.db
+*.log
+
+# IDEs
+/.vscode
+/.idea
+/.cursor
+/.nova
+/.zed
+/.codex
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# Coverage
+/coverage
+.nyc_output

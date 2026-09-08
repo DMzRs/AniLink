@@ -1,0 +1,37 @@
+{
+  "expo": {
+    "name": "AniLink",
+    "slug": "anilink",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "splash": { "backgroundColor": "#FAF8F3", "resizeMode": "contain" },
+    "ios": {
+      "supportsTablet": true
+    },
+    "android": {
+      "package": "com.anilink.mobile",
+      "adaptiveIcon": {
+        "backgroundColor": "#2E5339",
+        "foregroundImage": "./assets/android-icon-foreground.png",
+        "backgroundImage": "./assets/android-icon-background.png",
+        "monochromeImage": "./assets/android-icon-monochrome.png"
+      },
+      "useNextNotificationsApi": true
+    },
+    "plugins": [
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/icon.png",
+          "color": "#2E5339",
+          "sounds": []
+        }
+      ]
+    ],
+    "web": {
+      "favicon": "./assets/favicon.png"
+    }
+  }
+}
