@@ -1,57 +1,74 @@
 import { NavLink, useNavigate } from 'react-router-dom'
 import { useAuth } from '../lib/auth'
+import { Icon } from '../../shared/ui'
 
 const nav = [
-  { to: '/', label: 'Analytics', icon: '◈' },
-  { to: '/verifications', label: 'Verifications', icon: '✓' },
-  { to: '/listings', label: 'Listings', icon: '▦' },
-  { to: '/users', label: 'Users', icon: '○' },
+  { to: '/', label: 'Analytics', icon: 'analytics' },
+  { to: '/verifications', label: 'Verifications', icon: 'badge' },
+  { to: '/listings', label: 'Listings', icon: 'grid' },
+  { to: '/users', label: 'Users', icon: 'users' },
 ]
 
 export default function Layout({ children }) {
   const { user, logout } = useAuth()
   const navgo = useNavigate()
+  const today = new Date().toLocaleDateString('en-PH', { weekday: 'long', month: 'long', day: 'numeric' })
+
   return (
     <div className="min-h-screen bg-[#FAF8F3] text-[#1A1A1A] font-sans flex">
-      {/* Sidebar — Forest Green primary, desktop not mobile */}
+      {/* Sidebar — Forest Green primary */}
       <aside className="w-[260px] shrink-0 bg-[#2E5339] text-white flex flex-col sticky top-0 h-screen">
         <div className="px-6 py-6 border-b border-white/10">
           <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl bg-white flex items-center justify-center text-[#2E5339] font-bold">A</div>
+            <img src="/apple-touch-icon-180.png" alt="" className="w-9 h-9 rounded-xl shadow-[0_4px_12px_rgba(0,0,0,0.25)]" />
             <div>
               <div className="font-semibold leading-none">AniLink</div>
-              <div className="text-xs opacity-70">Admin</div>
+              <div className="text-xs opacity-70 mt-0.5">Admin console</div>
             </div>
           </div>
           <div className="mt-3 text-xs leading-4 opacity-80">Cultivating Connection, Harvesting Fair Trades.</div>
         </div>
+
         <nav className="flex-1 px-3 py-4 space-y-1">
           {nav.map(n => (
-            <NavLink key={n.to} to={n.to} end={n.to==='/'}
-              className={({isActive}) => `flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition ${isActive ? 'bg-white text-[#2E5339] font-semibold' : 'text-white/80 hover:bg-white/10 hover:text-white'}`}>
-              <span className="w-7 h-7 rounded-full bg-white/10 flex items-center justify-center text-xs">{n.icon}</span>
-              {n.label}
+            <NavLink key={n.to} to={n.to} end={n.to === '/'}>
+              {({ isActive }) => (
+                <span className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition ${isActive ? 'bg-white text-[#2E5339] font-semibold shadow-[0_4px_12px_rgba(0,0,0,0.12)]' : 'text-white/80 hover:bg-white/10 hover:text-white'}`}>
+                  <span className={`w-7 h-7 rounded-full flex items-center justify-center ${isActive ? 'bg-[#E8F0E9] text-[#2E5339]' : 'bg-white/10'}`}>
+                    <Icon name={n.icon} className="w-[18px] h-[18px]" />
+                  </span>
+                  {n.label}
+                </span>
+              )}
             </NavLink>
           ))}
         </nav>
+
         <div className="p-4 border-t border-white/10">
           <div className="bg-white/10 rounded-xl p-3">
             <div className="text-sm font-medium truncate">{user?.name ?? 'Admin'}</div>
             <div className="text-xs opacity-70 truncate">{user?.email ?? 'admin@anilink.test'}</div>
-            <button onClick={() => { logout(); navgo('/login') }} className="mt-3 w-full h-9 rounded-full bg-[#D4A017] text-[#1A1A1A] text-sm font-semibold hover:bg-[#E8B520]">Sign out</button>
+            <button onClick={() => { logout(); navgo('/login') }}
+              className="mt-3 w-full h-9 rounded-full bg-[#D4A017] text-[#1A1A1A] text-sm font-semibold hover:bg-[#E8B520] transition inline-flex items-center justify-center gap-2">
+              <Icon name="logout" className="w-4 h-4" /> Sign out
+            </button>
           </div>
-          <div className="mt-3 text-[11px] leading-4 opacity-60">Forest Green #2E5339 · Harvest Gold #D4A017 · Verified + 2FA trust signals</div>
+          <a href="/manage" className="mt-3 block text-[11px] leading-4 opacity-70 hover:opacity-100 transition">
+            Managing a farm? Open <span className="underline underline-offset-2">AniManage</span> →
+          </a>
         </div>
       </aside>
 
       <div className="flex-1 min-w-0 flex flex-col">
-        <header className="sticky top-0 z-10 bg-white border-b border-[#E8E2D6] px-6 py-3 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <span className="w-2 h-2 rounded-full bg-[#D4A017] animate-pulse" />
-            <span className="text-sm font-medium">Admin Panel — <span className="text-[#5C5C5C]">desktop, not mobile</span></span>
-            <span className="hidden md:inline text-xs px-2 py-1 rounded-full bg-[#FFF4D6] border border-[#F2D98A] text-[#8A6A0A]">Web-oriented screens</span>
+        <header className="sticky top-0 z-10 bg-white border-b border-[#E8E2D6] px-6 py-3 flex items-center justify-between gap-4">
+          <div className="flex items-center gap-3 min-w-0">
+            <span className="text-sm font-semibold">Admin console</span>
+            <span className="hidden md:inline text-xs text-[#8A8A8A] truncate">AniLink Cooperative · {today}</span>
           </div>
-          <div className="text-xs text-[#8A8A8A]">© AniLink Cooperative</div>
+          <div className="flex items-center gap-2 text-xs text-[#8A8A8A] shrink-0">
+            <span className="w-2 h-2 rounded-full bg-[#4A7C59] animate-pulse" />
+            Live
+          </div>
         </header>
         <main className="flex-1 p-6 lg:p-8 max-w-[1280px] w-full mx-auto">
           {children}

@@ -15,3 +15,16 @@
     --color-warm: #FAF8F3;
     --color-cancel: #B0413E;
 }
+
+/* Brand accessibility touches */
+::selection {
+    background: #FFF4D6;
+    color: #8A6A0A;
+}
+
+a:focus-visible,
+button:focus-visible {
+    outline: 2px solid #D4A017;
+    outline-offset: 2px;
+    border-radius: 9999px;
+}

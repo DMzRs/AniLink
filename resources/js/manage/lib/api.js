@@ -1,5 +1,12 @@
 const BASE = '/api'
 
+// URLSearchParams serializes undefined as the literal string "undefined",
+// which the backend then filters on — drop empty params instead.
+function qs(params = {}) {
+  const clean = Object.fromEntries(Object.entries(params).filter(([, v]) => v !== undefined && v !== null && v !== ''))
+  return new URLSearchParams(clean)
+}
+
 function getToken() {
   return localStorage.getItem('anilink_manage_token')
 }
@@ -31,9 +38,9 @@ async function apiFetch(path, { method = 'GET', body, auth = true } = {}) {
 export const api = {
   login: (email, password) => apiFetch('/login', { method: 'POST', body: { email, password }, auth: false }),
   me: () => apiFetch('/me'),
-  farmerProducts: (params = {}) => apiFetch(`/farmer/products?${new URLSearchParams(params)}`),
+  farmerProducts: (params = {}) => apiFetch(`/farmer/products?${qs(params)}`),
   adjustStock: (id, changeAmount, reason = 'adjustment') => apiFetch(`/products/${id}/stock`, { method: 'PATCH', body: { change_amount: changeAmount, reason } }),
   updateProduct: (id, payload) => apiFetch(`/products/${id}`, { method: 'PUT', body: payload }),
-  orders: (params = {}) => apiFetch(`/orders?${new URLSearchParams(params)}`),
+  orders: (params = {}) => apiFetch(`/orders?${qs(params)}`),
   updateOrderStatus: (id, status, note) => apiFetch(`/orders/${id}/status`, { method: 'PATCH', body: { status, note } }),
 }

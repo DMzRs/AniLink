@@ -1,5 +1,12 @@
 const BASE = '/api'
 
+// URLSearchParams serializes undefined as the literal string "undefined",
+// which the backend then filters on — drop empty params instead.
+function qs(params = {}) {
+  const clean = Object.fromEntries(Object.entries(params).filter(([, v]) => v !== undefined && v !== null && v !== ''))
+  return new URLSearchParams(clean)
+}
+
 function getToken() {
   return localStorage.getItem('anilink_admin_token')
 }
@@ -31,12 +38,12 @@ export async function apiFetch(path, { method = 'GET', body, auth = true } = {})
 export const api = {
   login: (email, password) => apiFetch('/login', { method: 'POST', body: { email, password }, auth: false }),
   me: () => apiFetch('/me'),
-  verifications: (params = {}) => apiFetch(`/admin/verifications?${new URLSearchParams(params)}`),
+  verifications: (params = {}) => apiFetch(`/admin/verifications?${qs(params)}`),
   decide: (id, status, note) => apiFetch(`/admin/verifications/${id}/decision`, { method: 'POST', body: { status, note } }),
-  listings: (params = {}) => apiFetch(`/admin/listings?${new URLSearchParams(params)}`),
+  listings: (params = {}) => apiFetch(`/admin/listings?${qs(params)}`),
   moderateListing: (id, status, note) => apiFetch(`/admin/listings/${id}`, { method: 'PATCH', body: { status, note } }),
-  users: (params = {}) => apiFetch(`/admin/users?${new URLSearchParams(params)}`),
+  users: (params = {}) => apiFetch(`/admin/users?${qs(params)}`),
   moderateUser: (id, payload) => apiFetch(`/admin/users/${id}`, { method: 'PATCH', body: payload }),
   analytics: () => apiFetch('/admin/analytics'),
-  orders: (params = {}) => apiFetch(`/admin/orders?${new URLSearchParams(params)}`),
+  orders: (params = {}) => apiFetch(`/admin/orders?${qs(params)}`),
 }

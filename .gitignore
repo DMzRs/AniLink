@@ -90,3 +90,8 @@ Thumbs.db
 # Coverage
 /coverage
 .nyc_output
+
+# Docs — ignored per user request (internal spec/branding)
+DESIGN.md
+ANILINK_SPEC.md
+documentation.md
