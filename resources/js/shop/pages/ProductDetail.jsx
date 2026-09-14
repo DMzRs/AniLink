@@ -106,14 +106,53 @@ export default function ProductDetail() {
       </div>
 
       {p.farmer && (
-        <div className="mt-8 bg-white border border-[#E8E2D6] rounded-[16px] p-5 flex items-center gap-4">
-          <div className="w-12 h-12 rounded-full bg-[#E8F0E9] flex items-center justify-center text-xl">🧑‍🌾</div>
-          <div>
-            <div className="font-semibold">{p.farmer.farm_name || p.farmer.name}</div>
-            <div className="text-xs text-[#5C5C5C]">{[p.farmer.barangay, p.farmer.municipality, p.farmer.province].filter(Boolean).join(', ') || 'Philippines'}</div>
+        <>
+          <div className="mt-8 bg-white border border-[#E8E2D6] rounded-[16px] p-5 flex items-center gap-4">
+            <div className="w-12 h-12 rounded-full bg-[#E8F0E9] flex items-center justify-center text-xl">🧑‍🌾</div>
+            <div className="flex-1">
+              <div className="font-semibold">{p.farmer.farm_name || p.farmer.name}</div>
+              <div className="text-xs text-[#5C5C5C]">{[p.farmer.barangay, p.farmer.municipality, p.farmer.province].filter(Boolean).join(', ') || 'Philippines'}</div>
+            </div>
+            {p.farmer.rating_avg ? (
+              <div className="text-right shrink-0">
+                <div className="text-[#D4A017] font-bold">★ {p.farmer.rating_avg.toFixed(1)}</div>
+                <div className="text-xs text-[#8A8A8A]">{p.farmer.rating_count} review{p.farmer.rating_count === 1 ? '' : 's'}</div>
+              </div>
+            ) : (
+              <div className="text-xs text-[#8A8A8A] shrink-0">No reviews yet</div>
+            )}
           </div>
-        </div>
+
+          {p.farmer.rating_count > 0 && <FarmerReviews farmerId={p.farmer.id} />}
+        </>
       )}
+    </div>
+  )
+}
+
+function FarmerReviews({ farmerId }) {
+  const { data } = useQuery({
+    queryKey: ['farmer-reviews', farmerId],
+    queryFn: () => api.farmerReviews(farmerId),
+  })
+  const reviews = data?.reviews ?? []
+  if (reviews.length === 0) return null
+
+  return (
+    <div className="mt-4 bg-white border border-[#E8E2D6] rounded-[16px] p-5">
+      <h2 className="font-semibold mb-3">Buyer reviews</h2>
+      <div className="space-y-3">
+        {reviews.map(r => (
+          <div key={r.id} className="border-t border-[#F0EDE6] first:border-0 first:pt-0 pt-3">
+            <div className="flex items-center gap-2">
+              <span className="text-[#D4A017] font-semibold text-sm">{'★'.repeat(r.rating)}{'☆'.repeat(5 - r.rating)}</span>
+              <span className="text-xs text-[#5C5C5C] font-medium">{r.reviewer_name || 'Buyer'}</span>
+              <span className="text-xs text-[#8A8A8A]">{r.created_at ? new Date(r.created_at).toLocaleDateString('en-PH') : ''}</span>
+            </div>
+            {r.comment && <p className="text-sm text-[#5C5C5C] mt-1 leading-6">{r.comment}</p>}
+          </div>
+        ))}
+      </div>
     </div>
   )
 }

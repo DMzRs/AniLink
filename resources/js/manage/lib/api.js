@@ -11,11 +11,11 @@ function getToken() {
   return localStorage.getItem('anilink_manage_token')
 }
 
-async function apiFetch(path, { method = 'GET', body, auth = true } = {}) {
+async function apiFetch(path, { method = 'GET', body, auth = true, token } = {}) {
   const headers = { Accept: 'application/json' }
   if (!(body instanceof FormData)) headers['Content-Type'] = 'application/json'
   if (auth) {
-    const t = getToken()
+    const t = token ?? getToken()
     if (t) headers.Authorization = `Bearer ${t}`
   }
   const res = await fetch(`${BASE}${path}`, {
@@ -37,8 +37,19 @@ async function apiFetch(path, { method = 'GET', body, auth = true } = {}) {
 
 export const api = {
   login: (email, password) => apiFetch('/login', { method: 'POST', body: { email, password }, auth: false }),
+  verifyTwoFactor: (code, { email, pendingToken } = {}) =>
+    apiFetch('/2fa/verify', {
+      method: 'POST',
+      body: pendingToken ? { code } : { code, email },
+      auth: !!pendingToken,
+      token: pendingToken,
+    }),
   me: () => apiFetch('/me'),
   farmerProducts: (params = {}) => apiFetch(`/farmer/products?${qs(params)}`),
+  dashboard: () => apiFetch('/farmer/dashboard'),
+  insights: () => apiFetch('/predict/insights'),
+  farmerQuotes: () => apiFetch('/farmer/quotes'),
+  respondQuote: (id, payload) => apiFetch(`/farmer/quotes/${id}`, { method: 'PATCH', body: payload }),
   adjustStock: (id, changeAmount, reason = 'adjustment') => apiFetch(`/products/${id}/stock`, { method: 'PATCH', body: { change_amount: changeAmount, reason } }),
   updateProduct: (id, payload) => apiFetch(`/products/${id}`, { method: 'PUT', body: payload }),
   createProduct: (payload) => {

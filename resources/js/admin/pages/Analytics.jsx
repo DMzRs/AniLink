@@ -3,7 +3,7 @@ import { api } from '../lib/api'
 import { PageHeader, CardSkeleton, EmptyState, Icon } from '../../shared/ui'
 
 function Peso({ n }) {
-  return <>{Number(n).toLocaleString('en-PH', { style: 'currency', currency: 'PHP' })}</>
+  return <>{Number(n ?? 0).toLocaleString('en-PH', { style: 'currency', currency: 'PHP' })}</>
 }
 
 const STATUS_FLOW = ['pending', 'confirmed', 'preparing', 'ready', 'delivered', 'completed', 'cancelled']
@@ -44,7 +44,7 @@ export default function Analytics() {
   }
   if (error) return <div className="p-6 text-[#B0413E]">Failed: {error.message} <button onClick={() => refetch()} className="underline">Retry</button></div>
 
-  const a = data
+  const a = data ?? {}
 
   return (
     <div className="space-y-6">
@@ -61,14 +61,14 @@ export default function Analytics() {
 
       {/* KPI */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <KpiCard label="GMV (ex-cancelled)" icon="analytics" value={<Peso n={a.gmv} />} hint={`${a.total_orders} orders`} />
+        <KpiCard label="GMV (ex-cancelled)" icon="analytics" value={<Peso n={a.gmv} />} hint={`${a.total_orders ?? 0} orders`} />
         <KpiCard
           label="Active farmers" icon="sprout"
-          value={a.active_farmers}
-          tone={a.pending_verifications > 0 ? 'text-[#B0413E]' : 'text-[#1A1A1A]'}
-          hint={`${a.pending_verifications} pending verification${a.pending_verifications === 1 ? '' : 's'}`}
+          value={a.active_farmers ?? 0}
+          tone={(a.pending_verifications ?? 0) > 0 ? 'text-[#B0413E]' : 'text-[#1A1A1A]'}
+          hint={`${a.pending_verifications ?? 0} pending verification${(a.pending_verifications ?? 0) === 1 ? '' : 's'}`}
         />
-        <KpiCard label="Available products" icon="inventory" value={`${a.available_products} / ${a.total_products}`} hint={`${a.buyers} buyers · ${a.total_users} users`} />
+        <KpiCard label="Available products" icon="inventory" value={`${a.available_products ?? 0} / ${a.total_products ?? 0}`} hint={`${a.buyers ?? 0} buyers · ${a.total_users ?? 0} users`} />
         <div className="bg-white rounded-[12px] border border-[#E8E2D6] p-5 shadow-[0_4px_12px_rgba(46,83,57,0.06)]">
           <div className="text-xs font-semibold tracking-[0.06em] uppercase text-[#8A8A8A]">Orders by status</div>
           <div className="mt-2 flex flex-wrap gap-1.5 min-h-[30px]">

@@ -27,18 +27,20 @@ export default function Inventory() {
   const [formError, setFormError] = useState(null)
 
   const { data: prodRes, isLoading, error } = useQuery({ queryKey: ['farmer-products'], queryFn: () => api.farmerProducts() })
-  const { data: ordersRes } = useQuery({ queryKey: ['farmer-orders'], queryFn: () => api.orders() })
+  // Real SQL aggregates from /farmer/dashboard — the old client-side math over the
+  // first page of orders quietly dropped older sales from the totals.
+  const { data: dash } = useQuery({ queryKey: ['farmer-dashboard'], queryFn: () => api.dashboard() })
+  const { data: predict } = useQuery({ queryKey: ['predict-insights'], queryFn: () => api.insights() })
   const { data: cats } = useQuery({ queryKey: ['categories'], queryFn: () => api.categories() })
   const categories = Array.isArray(cats) ? cats : (cats?.data ?? [])
 
   const products = prodRes?.data ?? prodRes ?? []
-  const orders = Array.isArray(ordersRes?.data) ? ordersRes.data : (ordersRes ?? [])
 
-  const lowStock = products.filter(p => Number(p.available_quantity) <= 5 && p.status !== 'archived')
-  const todayStr = new Date().toDateString()
-  const daily = orders.filter(o => new Date(o.created_at).toDateString() === todayStr && o.status !== 'cancelled').reduce((s,o)=>s+Number(o.total_amount||0),0)
-  const weekly = orders.filter(o => new Date(o.created_at).getTime() > Date.now()-7*86400000 && o.status!=='cancelled').reduce((s,o)=>s+Number(o.total_amount||0),0)
-  const pending = orders.filter(o=>o.status==='pending').length
+  const lowStock = dash?.low_stock ?? []
+  const daily = dash?.sales?.today?.revenue ?? 0
+  const weekly = dash?.sales?.week?.revenue ?? 0
+  const itemsSold = dash?.sales?.week?.items_sold ?? 0
+  const pending = dash?.pending_orders ?? 0
 
   const adjust = useMutation({
     mutationFn: ({ id, delta }) => api.adjustStock(id, delta, delta>0 ? 'restock' : 'adjustment'),
@@ -54,12 +56,12 @@ export default function Inventory() {
       return { prev }
     },
     onError: (_e, _v, ctx) => { if (ctx?.prev) qc.setQueryData(['farmer-products'], ctx.prev) },
-    onSettled: () => { setUpdating(null); qc.invalidateQueries({ queryKey: ['farmer-products'] }) },
+    onSettled: () => { setUpdating(null); qc.invalidateQueries({ queryKey: ['farmer-products'] }); qc.invalidateQueries({ queryKey: ['farmer-dashboard'] }) },
   })
 
   const toggleSoldOut = useMutation({
-    mutationFn: ({ id, soldOut }) => soldOut ? api.updateProduct(id, { status: 'archived' }) : api.adjustStock(id, 10, 'restock'),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['farmer-products'] }),
+    mutationFn: ({ id, soldOut }) => soldOut ? api.updateProduct(id, { status: 'sold_out' }) : api.adjustStock(id, 10, 'restock'),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['farmer-products'] }); qc.invalidateQueries({ queryKey: ['farmer-dashboard'] }) },
   })
 
   const create = useMutation({
@@ -182,7 +184,7 @@ export default function Inventory() {
             <span className="w-8 h-8 rounded-full bg-[#E8F0E9] text-[#2E5339] grid place-items-center shrink-0"><Icon name="orders" className="w-4 h-4" /></span>
           </div>
           <div className="mt-1 text-xl font-semibold">{fmtPeso(weekly)}</div>
-          <div className="text-xs text-[#8A8A8A]">Last 7 days of sales</div>
+          <div className="text-xs text-[#8A8A8A]">{itemsSold} items sold · last 7 days</div>
         </div>
         <div className="bg-[#FFF4D6] rounded-[12px] border border-[#F2D98A] p-5">
           <div className="flex items-center justify-between gap-2">
@@ -206,6 +208,32 @@ export default function Inventory() {
         </div>
       )}
 
+      {/* AniPredict — market insights (same endpoint as the mobile Predict screen) */}
+      {predict?.category && (
+        <div className="bg-white rounded-[12px] border border-[#E8E2D6] p-5 shadow-[0_4px_12px_rgba(46,83,57,0.06)]">
+          <div className="flex items-center justify-between gap-2 flex-wrap">
+            <div className="text-xs font-semibold tracking-[0.06em] uppercase text-[#8A8A8A]">AniPredict · {predict.category.name}</div>
+            {predict.demand?.direction && (
+              <span className={`text-[11px] font-bold px-2.5 py-1 rounded-full border capitalize ${predict.demand.direction === 'rising' ? 'bg-[#E8F0E9] border-[#C5D9C7] text-[#4A7C59]' : predict.demand.direction === 'falling' ? 'bg-[#FDEDEC] border-[#E8C6C6] text-[#B0413E]' : 'bg-[#FFF4D6] border-[#F2D98A] text-[#8A6A0A]'}`}>
+                {predict.demand.direction === 'rising' ? '↑' : predict.demand.direction === 'falling' ? '↓' : '→'} demand {predict.demand.direction}
+              </span>
+            )}
+          </div>
+          <div className="mt-2 text-sm text-[#5C5C5C]">
+            {predict.best_time?.recommendation || 'Price history builds as your orders complete.'}
+          </div>
+          {predict.regional_comparison?.length > 0 && (
+            <div className="mt-3 flex flex-wrap gap-2">
+              {predict.regional_comparison.map(r => (
+                <span key={r.region} className={`inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs ${r.is_home ? 'bg-[#E8F0E9] border-[#C5D9C7] text-[#2E5339] font-semibold' : 'bg-white border-[#E8E2D6] text-[#5C5C5C]'}`}>
+                  {r.region}{r.is_home ? ' (you)' : ''} — {fmtPeso(r.avg_price)}
+                </span>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Listings table */}
       <div className="bg-white rounded-[12px] border border-[#E8E2D6] overflow-hidden shadow-[0_4px_12px_rgba(46,83,57,0.06)]">
         <div className="overflow-x-auto">
@@ -223,7 +251,7 @@ export default function Inventory() {
                         {p.image ? <img src={p.image} alt={p.name} className="w-8 h-8 rounded-lg object-cover border border-[#E8E2D6] shrink-0" loading="lazy" /> : <span className="w-8 h-8 rounded-lg bg-[#E8F0E9] flex items-center justify-center text-sm shrink-0" aria-hidden="true">🥬</span>}
                         {p.name} {p.status === 'archived' && <Chip tone="archived" className="!py-0.5">Archived</Chip>}
                       </div>
-                      <div className="text-xs text-[#8A8A8A] mt-0.5">Harvest {p.harvest_date || '—'} · {p.status.replace('_', ' ')}</div>
+                      <div className="text-xs text-[#8A8A8A] mt-0.5">Harvest {p.harvest_date || '—'} · {(p.status || '').replace('_', ' ') || '—'}</div>
                     </td>
                     <td className="px-4 py-3">
                       <div className="text-sm font-medium text-[#2E5339]">{fmtPeso(p.price_per_unit)} / {p.unit_type}</div>

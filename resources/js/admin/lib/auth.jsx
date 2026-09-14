@@ -8,38 +8,50 @@ export function AuthProvider({ children }) {
     try { return JSON.parse(localStorage.getItem('anilink_admin_user') || 'null') } catch { return null }
   })
   const [token, setToken] = useState(() => localStorage.getItem('anilink_admin_token'))
+  const [pendingToken, setPendingToken] = useState(null)
+  const [pendingEmail, setPendingEmail] = useState(null)
+
+  const persist = (t, u) => {
+    localStorage.setItem('anilink_admin_token', t)
+    localStorage.setItem('anilink_admin_user', JSON.stringify(u))
+    setToken(t)
+    setUser(u)
+  }
 
   const login = async (email, password) => {
     const res = await api.login(email, password)
-    // farmer 2FA flow — for admin seeded without 2FA, token is directly returned
-    const t = res.token || res.pending_token
-    if (!t) throw new Error(res.message || 'Login failed')
     if (res.two_factor_required) {
       // local dev: code_hint present → auto verify
       if (res.code_hint && res.pending_token) {
-        const v = await fetch('/api/2fa/verify', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${res.pending_token}` },
-          body: JSON.stringify({ code: res.code_hint }),
-        }).then(r => r.json())
+        const v = await api.verifyTwoFactor(res.code_hint, { pendingToken: res.pending_token })
         if (!v.token) throw new Error('2FA verify failed')
-        localStorage.setItem('anilink_admin_token', v.token)
-        localStorage.setItem('anilink_admin_user', JSON.stringify(v.user))
-        setToken(v.token); setUser(v.user)
+        persist(v.token, v.user)
         return v
       }
-      throw new Error('2FA required')
+      setPendingToken(res.pending_token || null)
+      setPendingEmail(email)
+      return res
     }
-    localStorage.setItem('anilink_admin_token', t)
-    localStorage.setItem('anilink_admin_user', JSON.stringify(res.user))
-    setToken(t); setUser(res.user)
+    // farmer 2FA flow — for admin seeded without 2FA, token is directly returned
+    const t = res.token || res.pending_token
+    if (!t) throw new Error(res.message || 'Login failed')
+    persist(t, res.user)
     return res
+  }
+
+  const verifyTwoFactor = async (code) => {
+    const v = await api.verifyTwoFactor(code, { pendingToken, email: pendingEmail })
+    setPendingToken(null)
+    setPendingEmail(null)
+    persist(v.token, v.user)
+    return v
   }
 
   const logout = () => {
     localStorage.removeItem('anilink_admin_token')
     localStorage.removeItem('anilink_admin_user')
     setToken(null); setUser(null)
+    setPendingToken(null); setPendingEmail(null)
   }
 
   useEffect(() => {
@@ -48,7 +60,7 @@ export function AuthProvider({ children }) {
     }
   }, [])
 
-  return <AuthCtx.Provider value={{ user, token, login, logout, setUser }}>{children}</AuthCtx.Provider>
+  return <AuthCtx.Provider value={{ user, token, pendingToken, pendingEmail, login, verifyTwoFactor, logout, setUser }}>{children}</AuthCtx.Provider>
 }
 
 export const useAuth = () => useContext(AuthCtx)

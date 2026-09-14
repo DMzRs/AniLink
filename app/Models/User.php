@@ -14,8 +14,11 @@ class User extends Authenticatable
     use HasApiTokens, HasFactory, Notifiable;
 
     public const ROLE_FARMER = 'farmer';
+
     public const ROLE_BUYER_INDIVIDUAL = 'buyer_individual';
+
     public const ROLE_BUYER_BUSINESS = 'buyer_business';
+
     public const ROLE_ADMIN = 'admin';
 
     public const ROLES = [
@@ -89,6 +92,11 @@ class User extends Authenticatable
     public function notifications(): HasMany
     {
         return $this->hasMany(Notification::class);
+    }
+
+    public function reviewsReceived(): HasMany
+    {
+        return $this->hasMany(Review::class, 'farmer_id');
     }
 
     // Helpers

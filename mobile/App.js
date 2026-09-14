@@ -10,6 +10,11 @@ import AppNavigator from './src/navigation/AppNavigator';
 import { colors } from './src/theme/colors';
 import { usePushNotifications } from './src/hooks/usePushNotifications';
 
+function PushBootstrap({ children }) {
+  usePushNotifications();
+  return children;
+}
+
 export default function App() {
   const [fontsLoaded] = useFonts({ Poppins_400Regular, Poppins_500Medium, Poppins_600SemiBold, Poppins_700Bold });
 
@@ -24,11 +29,6 @@ export default function App() {
         <StatusBar style="dark" />
       </View>
     );
-  }
-
-  function PushBootstrap({ children }) {
-    usePushNotifications();
-    return children;
   }
 
   return (

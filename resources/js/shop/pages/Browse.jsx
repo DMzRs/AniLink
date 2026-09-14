@@ -15,9 +15,11 @@ export default function Browse() {
   const [category, setCategory] = useState('')
   const [sort, setSort] = useState('fresh')
   const [verifiedOnly, setVerifiedOnly] = useState(false)
+  const [near, setNear] = useState('')
   const [page, setPage] = useState(1)
 
   const { data: categories } = useQuery({ queryKey: ['categories'], queryFn: api.categories })
+  const { data: regions } = useQuery({ queryKey: ['regions'], queryFn: () => api.regions() })
 
   const { data, isLoading, isError } = useQuery({
     queryKey: ['products', { search, category, sort, verifiedOnly, page }],
@@ -26,6 +28,7 @@ export default function Browse() {
       category: category || undefined,
       sort,
       verified_only: verifiedOnly ? 1 : undefined,
+      near: near || undefined,
       page,
     }),
     placeholderData: keepPreviousData,
@@ -57,6 +60,11 @@ export default function Browse() {
             className="w-full border border-[#E8E2D6] bg-white rounded-[12px] pl-4 pr-4 py-2.5 text-sm focus:outline-none focus:border-[#2E5339]"
           />
         </div>
+        <select value={near} onChange={(e) => { setNear(e.target.value); setPage(1) }}
+          className="border border-[#E8E2D6] bg-white rounded-[12px] px-3 py-2.5 text-sm focus:outline-none focus:border-[#2E5339]" aria-label="Near me">
+          <option value="">Near me…</option>
+          {(regions ?? []).map(r => <option key={r.id} value={r.name}>{r.name}</option>)}
+        </select>
         <select value={sort} onChange={(e) => { setSort(e.target.value); setPage(1) }}
           className="border border-[#E8E2D6] bg-white rounded-[12px] px-3 py-2.5 text-sm focus:outline-none focus:border-[#2E5339]">
           {sorts.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}

@@ -7,6 +7,7 @@ import { typography } from '../theme/typography';
 import StatusChip from '../components/StatusChip';
 import NotificationBell from '../components/NotificationBell';
 import { getOrders, getOrder } from '../api/orders';
+import { useNavigation } from '@react-navigation/native';
 import { api } from '../api/client';
 import { useAuth } from '../context/AuthContext';
 import { peso } from '../utils/format';
@@ -29,7 +30,8 @@ const nextLabel = {
 
 const filters = ['all', 'pending', 'confirmed', 'preparing', 'ready', 'delivered', 'completed'];
 
-export default function FarmerOrdersScreen({ navigation }) {
+export default function FarmerOrdersScreen() {
+  const navigation = useNavigation();
   const { token, login } = useAuth();
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -131,6 +133,9 @@ export default function FarmerOrdersScreen({ navigation }) {
           <Text style={s.headerSub}>{orders.length} orders • {counts.pending || 0} pending • via API + push</Text>
         </View>
         <View style={{ flexDirection: 'row', gap: 8, alignItems: 'center' }}>
+          <Pressable onPress={() => navigation?.navigate('FarmerQuotes')} style={s.quotesBtn}>
+            <Text style={s.quotesBtnText}>Bulk quotes</Text>
+          </Pressable>
           <NotificationBell onPress={() => navigation?.navigate('Notifications')} />
           <View style={s.liveDot}><View style={s.livePulse} /><Text style={s.liveText}>Live</Text></View>
         </View>
@@ -164,7 +169,12 @@ export default function FarmerOrdersScreen({ navigation }) {
             <View style={s.card}>
               <View style={s.cardHead}>
                 <Text style={s.orderId}>Order #{item.id}</Text>
-                <StatusChip status={item.status} />
+                <View style={{ flexDirection: 'row', gap: 6, alignItems: 'center' }}>
+                  <Pressable onPress={() => navigation.navigate('Report', { orderId: item.id, subjectLabel: `Order #${item.id}` })} style={s.reportBtn}>
+                    <Text style={s.reportBtnText}>⚠ Report</Text>
+                  </Pressable>
+                  <StatusChip status={item.status} />
+                </View>
               </View>
               <View style={s.metaRow}>
                 <Text style={s.buyer} numberOfLines={1}>{item.buyer?.name ?? 'Buyer'} • {item.order_type === 'bulk' ? 'Bulk' : 'Retail'} • {item.fulfillment_type === 'delivery' ? 'Delivery' : 'Pickup'}</Text>
@@ -215,6 +225,8 @@ const s = StyleSheet.create({
   },
   headerEyebrow: { ...typography.label, color: 'rgba(255,255,255,0.7)', fontSize: 10 },
   headerTitle: { ...typography.heading, color: colors.white, marginTop: 2 },
+  quotesBtn: { height: 36, paddingHorizontal: 12, borderRadius: radius.pill, backgroundColor: colors.harvestGold, alignItems: 'center', justifyContent: 'center' },
+  quotesBtnText: { fontSize: 12, fontFamily: 'Poppins_600SemiBold', color: colors.textPrimary },
   headerSub: { ...typography.caption, color: 'rgba(255,255,255,0.8)', marginTop: 2 },
   liveDot: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: 'rgba(255,255,255,0.14)', borderRadius: radius.pill, paddingHorizontal: 10, paddingVertical: 6 },
   livePulse: { width: 8, height: 8, borderRadius: 4, backgroundColor: colors.harvestGold },
@@ -247,4 +259,6 @@ const s = StyleSheet.create({
   hint: { ...typography.caption, color: colors.textMuted, fontSize: 10, textAlign: 'center' },
   empty: { padding: 32, alignItems: 'center' },
   emptyText: { ...typography.body, color: colors.textMuted, textAlign: 'center' },
+  reportBtn: { height: 30, paddingHorizontal: 10, borderRadius: radius.pill, borderWidth: 1, borderColor: colors.border, alignItems: 'center', justifyContent: 'center' },
+  reportBtnText: { fontSize: 11, color: colors.textMuted },
 });

@@ -3,10 +3,12 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { AuthProvider, useAuth } from './lib/auth'
 import Layout from './components/Layout'
 import Login from './pages/Login'
+import ForgotPassword from '../shared/ForgotPassword'
 import Analytics from './pages/Analytics'
 import Verifications from './pages/Verifications'
 import Listings from './pages/Listings'
 import Users from './pages/Users'
+import Reports from './pages/Reports'
 
 const qc = new QueryClient()
 
@@ -24,10 +26,12 @@ export default function App() {
         <BrowserRouter basename="/admin">
           <Routes>
             <Route path="/login" element={<Login />} />
+            <Route path="/forgot-password" element={<ForgotPassword loginPath="/login" />} />
             <Route path="/" element={<RequireAdmin><Layout><Analytics /></Layout></RequireAdmin>} />
             <Route path="/verifications" element={<RequireAdmin><Layout><Verifications /></Layout></RequireAdmin>} />
             <Route path="/listings" element={<RequireAdmin><Layout><Listings /></Layout></RequireAdmin>} />
             <Route path="/users" element={<RequireAdmin><Layout><Users /></Layout></RequireAdmin>} />
+            <Route path="/reports" element={<RequireAdmin><Layout><Reports /></Layout></RequireAdmin>} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         </BrowserRouter>

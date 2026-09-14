@@ -11,11 +11,11 @@ function getToken() {
   return localStorage.getItem('anilink_admin_token')
 }
 
-export async function apiFetch(path, { method = 'GET', body, auth = true } = {}) {
+export async function apiFetch(path, { method = 'GET', body, auth = true, token } = {}) {
   const headers = { Accept: 'application/json' }
   if (!(body instanceof FormData)) headers['Content-Type'] = 'application/json'
   if (auth) {
-    const t = getToken()
+    const t = token ?? getToken()
     if (t) headers.Authorization = `Bearer ${t}`
   }
   const res = await fetch(`${BASE}${path}`, {
@@ -37,6 +37,13 @@ export async function apiFetch(path, { method = 'GET', body, auth = true } = {})
 
 export const api = {
   login: (email, password) => apiFetch('/login', { method: 'POST', body: { email, password }, auth: false }),
+  verifyTwoFactor: (code, { email, pendingToken } = {}) =>
+    apiFetch('/2fa/verify', {
+      method: 'POST',
+      body: pendingToken ? { code } : { code, email },
+      auth: !!pendingToken,
+      token: pendingToken,
+    }),
   me: () => apiFetch('/me'),
   verifications: (params = {}) => apiFetch(`/admin/verifications?${qs(params)}`),
   decide: (id, status, note) => apiFetch(`/admin/verifications/${id}/decision`, { method: 'POST', body: { status, note } }),
@@ -46,4 +53,6 @@ export const api = {
   moderateUser: (id, payload) => apiFetch(`/admin/users/${id}`, { method: 'PATCH', body: payload }),
   analytics: () => apiFetch('/admin/analytics'),
   orders: (params = {}) => apiFetch(`/admin/orders?${qs(params)}`),
+  reports: (params = {}) => apiFetch(`/admin/reports?${qs(params)}`),
+  handleReport: (id, status, note) => apiFetch(`/admin/reports/${id}`, { method: 'PATCH', body: { status, resolution_note: note } }),
 }

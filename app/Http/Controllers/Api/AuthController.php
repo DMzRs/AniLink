@@ -10,6 +10,7 @@ use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rules\Password;
 
 class AuthController extends Controller
@@ -26,6 +27,7 @@ class AuthController extends Controller
             'password' => ['required', 'confirmed', Password::min(8)],
             'role' => ['required', 'in:farmer,buyer_individual,buyer_business'],
             // Farmer specific
+            'verification_doc' => ['required_if:role,farmer', 'nullable', 'file', 'mimes:jpg,jpeg,png,pdf', 'max:5120'],
             'farm_name' => ['nullable', 'string', 'max:255'],
             'barangay' => ['nullable', 'string', 'max:255'],
             'municipality' => ['nullable', 'string', 'max:255'],
@@ -54,6 +56,8 @@ class AuthController extends Controller
                 'province' => $validated['province'] ?? null,
                 'bio' => $validated['bio'] ?? null,
                 'verification_status' => 'pending',
+                // Private disk — verification documents must never be publicly reachable
+                'verification_doc_path' => $request->file('verification_doc')?->store('verification-docs', 'local'),
             ]);
         } elseif (in_array($user->role, [User::ROLE_BUYER_INDIVIDUAL, User::ROLE_BUYER_BUSINESS], true)) {
             $buyerType = $user->role === User::ROLE_BUYER_BUSINESS ? 'business' : 'individual';
@@ -75,6 +79,43 @@ class AuthController extends Controller
             'token' => $token,
             'requires_2fa_setup' => $user->isFarmer(),
         ], 201);
+    }
+
+    /**
+     * Resubmit the verification document after a rejection. Resets the
+     * profile to pending so it re-enters the admin verification queue.
+     */
+    public function uploadVerificationDoc(Request $request)
+    {
+        $user = $request->user();
+
+        if (! $user->isFarmer()) {
+            return response()->json(['message' => 'Only farmers can upload verification documents.'], 403);
+        }
+
+        $validated = $request->validate([
+            'verification_doc' => ['required', 'file', 'mimes:jpg,jpeg,png,pdf', 'max:5120'],
+        ]);
+
+        $profile = $user->farmerProfile;
+
+        if (! $profile) {
+            return response()->json(['message' => 'Farmer profile not found.'], 404);
+        }
+
+        if ($profile->verification_doc_path) {
+            Storage::disk('local')->delete($profile->verification_doc_path);
+        }
+
+        $profile->update([
+            'verification_doc_path' => $validated['verification_doc']->store('verification-docs', 'local'),
+            'verification_status' => 'pending',
+        ]);
+
+        return response()->json([
+            'message' => 'Verification document uploaded. Your farm is pending review.',
+            'data' => $profile->fresh(),
+        ]);
     }
 
     /**

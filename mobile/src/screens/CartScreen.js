@@ -30,7 +30,7 @@ export default function CartScreen({ navigation }) {
 
       <FlatList
         data={items}
-        keyExtractor={(i) => i.product.id}
+        keyExtractor={(i) => String(i.product.id)}
         contentContainerStyle={{ padding: spacing.md, gap: spacing.sm, paddingBottom: 200 }}
         renderItem={({ item: { product, qty } }) => (
           <View style={s.item}>
@@ -38,7 +38,7 @@ export default function CartScreen({ navigation }) {
               <View style={s.thumb}><Text style={s.thumbEmoji}>{product.category === 'Bigas' ? '🌾' : '🥬'}</Text></View>
               <View style={{ flex: 1, gap: 2 }}>
                 <Text style={s.itemName} numberOfLines={1}>{product.name}</Text>
-                <Text style={s.itemFarm} numberOfLines={1}>{product.farmer.farm_name} {product.farmer.verified ? '✓' : ''} • {product.farmer.barangay}</Text>
+                <Text style={s.itemFarm} numberOfLines={1}>{product.farmer?.farm_name ?? '—'} {product.farmer?.verified ? '✓' : ''} • {product.farmer?.barangay ?? ''}</Text>
                 <Text style={s.itemPrice}>{peso(product.price_per_unit)} / {product.unit_type}</Text>
               </View>
               <Pressable onPress={() => remove(product.id)} hitSlop={12} style={s.remove}><Text style={s.removeText}>✕</Text></Pressable>

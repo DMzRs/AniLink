@@ -69,7 +69,7 @@ export default function Listings() {
                     </td>
                     <td className="px-4 py-3 font-medium text-[#2E5339]">₱{Number(p.price_per_unit).toLocaleString('en-PH')} / {p.unit_type}</td>
                     <td className="px-4 py-3">{p.available_quantity} {p.unit_type}</td>
-                    <td className="px-4 py-3"><Chip tone={p.status}>{p.status.replace('_', ' ')}</Chip></td>
+                    <td className="px-4 py-3"><Chip tone={p.status}>{(p.status || '').replace('_', ' ') || '—'}</Chip></td>
                     <td className="px-4 py-3 text-right space-x-2">
                       {p.status !== 'archived' && (
                         <button onClick={() => mutate({ id: p.id, status: 'archived' })}

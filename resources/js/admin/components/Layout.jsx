@@ -7,6 +7,7 @@ const nav = [
   { to: '/verifications', label: 'Verifications', icon: 'badge' },
   { to: '/listings', label: 'Listings', icon: 'grid' },
   { to: '/users', label: 'Users', icon: 'users' },
+  { to: '/reports', label: 'Reports', icon: 'alert' },
 ]
 
 export default function Layout({ children }) {

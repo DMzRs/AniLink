@@ -8,6 +8,7 @@ use App\Models\Notification;
 use App\Models\Order;
 use App\Models\OrderItem;
 use App\Models\OrderStatusHistory;
+use App\Models\PriceTrend;
 use App\Models\Product;
 use App\Services\ExpoPushService;
 use Illuminate\Http\Request;
@@ -224,23 +225,30 @@ class OrderController extends Controller
         }
 
         // Enforce valid transitions per spec flow: pending->confirmed->preparing->ready->delivered/completed
+        // Terminal states (cancelled/completed) have no outgoing transitions.
         $allowed = [
             'pending' => ['confirmed', 'cancelled'],
             'confirmed' => ['preparing', 'cancelled'],
             'preparing' => ['ready', 'cancelled'],
             'ready' => ['delivered', 'completed', 'cancelled'],
             'delivered' => ['completed'],
+            'cancelled' => [],
+            'completed' => [],
         ];
         $current = $order->status;
-        if (isset($allowed[$current]) && ! in_array($validated['status'], $allowed[$current], true) && ! $isAdmin) {
-            return response()->json(['message' => "Invalid transition from {$current} to {$validated['status']}. Allowed: ".implode(', ', $allowed[$current])], 422);
+        $allowedNext = $allowed[$current] ?? [];
+        if (! in_array($validated['status'], $allowedNext, true) && ! $isAdmin) {
+            $allowedLabel = $allowedNext ? implode(', ', $allowedNext) : 'none (terminal state)';
+
+            return response()->json(['message' => "Invalid transition from {$current} to {$validated['status']}. Allowed: {$allowedLabel}"], 422);
         }
 
         // If cancelling, restore stock
         if ($validated['status'] === 'cancelled' && $order->status !== 'cancelled') {
             $notifications = DB::transaction(function () use ($order, $user, $validated) {
+                $order->loadMissing('items');
                 foreach ($order->items as $item) {
-                    $product = Product::find($item->product_id);
+                    $product = Product::where('id', $item->product_id)->lockForUpdate()->first();
                     if ($product) {
                         $product->available_quantity += $item->quantity;
                         if ($product->status === 'sold_out' && $product->available_quantity > 0) {
@@ -259,6 +267,13 @@ class OrderController extends Controller
             $order->update(['status' => $validated['status']]);
             OrderStatusHistory::create(['order_id' => $order->id, 'status' => $validated['status'], 'changed_by' => $user->id, 'changed_at' => now(), 'note' => $validated['note'] ?? null]);
             $notifications = $this->createStatusNotifications($order, $validated['status']);
+
+            // AniPredict: a completion is a real transaction — snapshot each item's
+            // price into the trend history. Guarded against re-fires (admins bypass
+            // the transition map, so completed -> completed is technically possible).
+            if ($validated['status'] === 'completed' && $current !== 'completed') {
+                $this->recordPriceTrends($order);
+            }
         }
 
         // Expo push after commit — external HTTP never runs inside the stock-restore transaction
@@ -269,6 +284,31 @@ class OrderController extends Controller
         $order->load(['items.product.category', 'farmer.farmerProfile', 'buyer', 'statusHistory']);
 
         return response()->json(['message' => 'Order status updated.', 'data' => $this->transformOrder($order, true)]);
+    }
+
+    /**
+     * AniPredict data capture: one price_trends row per order item, keyed by the
+     * item's category in the farmer's province. unit_price is the checkout snapshot,
+     * so it reflects what was actually paid, not the current listing price.
+     */
+    private function recordPriceTrends(Order $order): void
+    {
+        $order->loadMissing(['items.product', 'farmer.farmerProfile']);
+        $region = $order->farmer?->farmerProfile?->province ?? 'Unknown';
+        $date = now()->toDateString();
+
+        foreach ($order->items as $item) {
+            if (! $item->product) {
+                continue;
+            }
+
+            PriceTrend::create([
+                'category_id' => $item->product->category_id,
+                'region' => $region,
+                'recorded_price' => $item->unit_price,
+                'recorded_date' => $date,
+            ]);
+        }
     }
 
     /**

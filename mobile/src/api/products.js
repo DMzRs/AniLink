@@ -4,6 +4,10 @@ export async function getCategories() {
   return api.request('/categories');
 }
 
+export async function getRegions() {
+  return api.request('/regions');
+}
+
 export async function getProducts(params = {}) {
   const q = new URLSearchParams();
   Object.entries(params).forEach(([k, v]) => {

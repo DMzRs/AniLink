@@ -9,6 +9,57 @@ const next = { pending: 'confirmed', confirmed: 'preparing', preparing: 'ready',
 const nextLabel = { pending: 'Confirm', confirmed: 'Prepare', preparing: 'Mark ready', ready: 'Deliver', delivered: 'Complete' }
 const filters = ['all','pending','confirmed','preparing','ready','delivered','completed','cancelled']
 
+function QuotePanel() {
+  const qc = useQueryClient()
+  const [prices, setPrices] = useState({})
+  const { data } = useQuery({ queryKey: ['farmer-quotes'], queryFn: () => api.farmerQuotes() })
+  const respond = useMutation({
+    mutationFn: ({ id, payload }) => api.respondQuote(id, payload),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['farmer-quotes'] }),
+  })
+  const quotes = data?.quotes ?? []
+
+  if (quotes.length === 0) return null
+  return (
+    <div className="bg-white rounded-[12px] border border-[#F2D98A] p-5 shadow-[0_4px_12px_rgba(46,83,57,0.06)]">
+      <div className="text-xs font-semibold tracking-[0.06em] uppercase text-[#8A6A0A] mb-3">Bulk quote requests (B2B)</div>
+      <div className="grid gap-3">
+        {quotes.map(q => (
+          <div key={q.id} className="border border-[#F0EDE6] rounded-[12px] p-4">
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="font-semibold">{q.quantity} {q.product?.unit_type} · {q.product?.name}</span>
+              <Chip tone={q.status === 'quoted' ? 'confirmed' : q.status === 'pending' ? 'pending' : q.status === 'declined' || q.status === 'withdrawn' ? 'cancelled' : 'ready'}>{q.status}</Chip>
+            </div>
+            <div className="text-xs text-[#8A8A8A] mt-0.5">From {q.buyer?.name} · listing at {fmtPeso(q.product?.price_per_unit || 0)}/{q.product?.unit_type}{q.product?.bulk_price ? ` · bulk ${fmtPeso(q.product.bulk_price)}` : ''}</div>
+            {q.message && <div className="text-sm text-[#5C5C5C] mt-1">“{q.message}”</div>}
+            {q.status === 'quoted' && <div className="text-sm text-[#4A7C59] mt-1">Quoted {fmtPeso(q.quoted_unit_price)}/{q.product?.unit_type}{q.response_note ? ` — ${q.response_note}` : ''}</div>}
+            {q.status === 'pending' && (
+              <div className="mt-3 flex flex-wrap items-center gap-2">
+                <input type="number" min="0.01" step="0.01" placeholder="Your price / unit"
+                  value={prices[q.id] ?? ''}
+                  onChange={e => setPrices(s => ({ ...s, [q.id]: e.target.value }))}
+                  className="h-9 w-36 rounded-full border border-[#E8E2D6] px-3 text-sm focus:outline-none focus:border-[#2E5339]" />
+                <button
+                  disabled={respond.isPending || !prices[q.id]}
+                  onClick={() => respond.mutate({ id: q.id, payload: { action: 'quote', quoted_unit_price: Number(prices[q.id]) } })}
+                  className="h-9 px-4 rounded-full bg-[#2E5339] text-white text-sm font-semibold hover:bg-[#24412D] disabled:opacity-50">
+                  Send quote
+                </button>
+                <button
+                  disabled={respond.isPending}
+                  onClick={() => respond.mutate({ id: q.id, payload: { action: 'decline' } })}
+                  className="h-9 px-4 rounded-full bg-white border border-[#E8C6C6] text-[#B0413E] text-sm font-semibold hover:bg-[#FDEDEC] disabled:opacity-50">
+                  Decline
+                </button>
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
 export default function Orders() {
   const [filter, setFilter] = useState('all')
   const qc = useQueryClient()
@@ -50,6 +101,8 @@ export default function Orders() {
           </button>
         ))}
       </div>
+
+      <QuotePanel />
 
       <div className="grid gap-3">
         {list.map(o => (

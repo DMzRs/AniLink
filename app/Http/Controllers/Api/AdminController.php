@@ -7,9 +7,12 @@ use App\Models\FarmerProfile;
 use App\Models\Notification;
 use App\Models\Order;
 use App\Models\Product;
+use App\Models\Report;
 use App\Models\User;
+use App\Services\ExpoPushService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 
 class AdminController extends Controller
 {
@@ -22,16 +25,27 @@ class AdminController extends Controller
         ]);
 
         $q = FarmerProfile::with('user')
-            ->when($request->status, fn($qq) => $qq->where('verification_status', $request->status))
+            ->when($request->status, fn ($qq) => $qq->where('verification_status', $request->status))
             ->when($request->search, function ($qq, $s) {
-                $qq->whereHas('user', fn($u) => $u->where('name', 'like', "%{$s}%")->orWhere('email', 'like', "%{$s}%"))
-                   ->orWhere('farm_name', 'like', "%{$s}%")
-                   ->orWhere('barangay', 'like', "%{$s}%")
-                   ->orWhere('municipality', 'like', "%{$s}%");
+                $qq->whereHas('user', fn ($u) => $u->where('name', 'like', "%{$s}%")->orWhere('email', 'like', "%{$s}%"))
+                    ->orWhere('farm_name', 'like', "%{$s}%")
+                    ->orWhere('barangay', 'like', "%{$s}%")
+                    ->orWhere('municipality', 'like', "%{$s}%");
             })
             ->latest();
 
         return $q->paginate($request->get('per_page', 15));
+    }
+
+    // GET /api/admin/verifications/{farmerProfile}/document — streams the uploaded
+    // document from the private disk; verification docs are never publicly served
+    public function document(FarmerProfile $farmerProfile)
+    {
+        if (! $farmerProfile->verification_doc_path) {
+            abort(404, 'No verification document uploaded.');
+        }
+
+        return Storage::disk('local')->download($farmerProfile->verification_doc_path);
     }
 
     // POST /api/admin/verifications/{farmerProfile}/decision
@@ -49,7 +63,7 @@ class AdminController extends Controller
 
         Notification::create([
             'user_id' => $farmerProfile->user_id,
-            'type' => 'verification_' . $data['status'],
+            'type' => 'verification_'.$data['status'],
             'title' => $data['status'] === 'approved' ? 'Farm verified — salamat!' : 'Verification needs attention',
             'body' => $data['status'] === 'approved'
                 ? "Your farm {$farmerProfile->farm_name} is now verified. Your listings will show the verified badge."
@@ -59,7 +73,7 @@ class AdminController extends Controller
 
         // Optional: push via ExpoPushService if we want — reuse existing service
         try {
-            \App\Services\ExpoPushService::sendForNotification(
+            ExpoPushService::sendForNotification(
                 Notification::latest()->where('user_id', $farmerProfile->user_id)->first()
             );
         } catch (\Throwable $e) {
@@ -77,8 +91,8 @@ class AdminController extends Controller
         ]);
 
         $q = User::with(['farmerProfile', 'buyerProfile'])
-            ->when($request->role, fn($qq) => $qq->where('role', $request->role))
-            ->when($request->search, fn($qq, $s) => $qq->where(fn($w) => $w->where('name', 'like', "%{$s}%")->orWhere('email', 'like', "%{$s}%")))
+            ->when($request->role, fn ($qq) => $qq->where('role', $request->role))
+            ->when($request->search, fn ($qq, $s) => $qq->where(fn ($w) => $w->where('name', 'like', "%{$s}%")->orWhere('email', 'like', "%{$s}%")))
             ->latest();
 
         return $q->paginate($request->get('per_page', 15));
@@ -97,6 +111,7 @@ class AdminController extends Controller
         }
 
         $user->update($data);
+
         return response()->json(['message' => 'User updated.', 'data' => $user->fresh()->load(['farmerProfile', 'buyerProfile'])]);
     }
 
@@ -110,13 +125,13 @@ class AdminController extends Controller
         ]);
 
         $q = Product::with(['farmer', 'farmer.farmerProfile', 'category'])
-            ->when($request->status, fn($qq) => $qq->where('status', $request->status))
-            ->when($request->category, fn($qq) => $qq->where('category_id', $request->category))
-            ->when($request->search, fn($qq, $s) => $qq->where(fn($w) => $w->where('name', 'like', "%{$s}%")->orWhereHas('farmer', fn($f) => $f->where('name', 'like', "%{$s}%"))))
+            ->when($request->status, fn ($qq) => $qq->where('status', $request->status))
+            ->when($request->category, fn ($qq) => $qq->where('category_id', $request->category))
+            ->when($request->search, fn ($qq, $s) => $qq->where(fn ($w) => $w->where('name', 'like', "%{$s}%")->orWhereHas('farmer', fn ($f) => $f->where('name', 'like', "%{$s}%"))))
             ->latest();
 
         $p = $q->paginate($request->get('per_page', 15));
-        $p->getCollection()->transform(fn($prod) => [
+        $p->getCollection()->transform(fn ($prod) => [
             'id' => $prod->id,
             'name' => $prod->name,
             'status' => $prod->status,
@@ -159,7 +174,7 @@ class AdminController extends Controller
     {
         $totalOrders = Order::count();
         $gmv = Order::whereNotIn('status', ['cancelled'])->sum('total_amount');
-        $activeFarmers = User::where('role', 'farmer')->whereHas('farmerProfile', fn($q) => $q->where('verification_status', 'approved'))->count();
+        $activeFarmers = User::where('role', 'farmer')->whereHas('farmerProfile', fn ($q) => $q->where('verification_status', 'approved'))->count();
         $pendingVerifications = FarmerProfile::where('verification_status', 'pending')->count();
         $totalProducts = Product::count();
         $availableProducts = Product::where('status', 'available')->count();
@@ -167,7 +182,7 @@ class AdminController extends Controller
         $buyers = User::whereIn('role', ['buyer_individual', 'buyer_business'])->count();
 
         // Order volume last 7 days
-        $ordersByDay = Order::selectRaw("DATE(created_at) as date, COUNT(*) as count, SUM(total_amount) as gmv")
+        $ordersByDay = Order::selectRaw('DATE(created_at) as date, COUNT(*) as count, SUM(total_amount) as gmv')
             ->where('created_at', '>=', now()->subDays(7))
             ->groupBy('date')->orderBy('date')->get();
 
@@ -178,7 +193,7 @@ class AdminController extends Controller
         $topFarmers = Order::selectRaw('farmer_id, SUM(total_amount) as gmv, COUNT(*) as orders')
             ->whereNotIn('status', ['cancelled'])
             ->groupBy('farmer_id')->with('farmer')->orderByDesc('gmv')->limit(5)->get()
-            ->map(fn($row) => ['farmer' => $row->farmer?->name, 'farm_name' => $row->farmer?->farmerProfile?->farm_name, 'gmv' => (float) $row->gmv, 'orders' => $row->orders]);
+            ->map(fn ($row) => ['farmer' => $row->farmer?->name, 'farm_name' => $row->farmer?->farmerProfile?->farm_name, 'gmv' => (float) $row->gmv, 'orders' => $row->orders]);
 
         // GMV by category
         $gmvByCategory = DB::table('order_items')
@@ -205,13 +220,52 @@ class AdminController extends Controller
         ]);
     }
 
+    // GET /api/admin/reports?status= — dispute/report queue (spec module 6)
+    public function reports(Request $request)
+    {
+        $request->validate(['status' => ['nullable', 'in:open,resolved,dismissed']]);
+
+        $q = Report::with(['reporter', 'reportedUser', 'order'])
+            ->when($request->status, fn ($qq) => $qq->where('status', $request->status))
+            ->latest();
+
+        return $q->paginate($request->get('per_page', 15));
+    }
+
+    // PATCH /api/admin/reports/{report} — resolve or dismiss with a note; the
+    // reporter is always told the outcome
+    public function handleReport(Request $request, Report $report)
+    {
+        $validated = $request->validate([
+            'status' => ['required', 'in:resolved,dismissed'],
+            'resolution_note' => ['nullable', 'string', 'max:1000'],
+        ]);
+
+        $report->update([
+            'status' => $validated['status'],
+            'resolution_note' => $validated['resolution_note'] ?? null,
+            'resolved_by' => $request->user()->id,
+        ]);
+
+        Notification::create([
+            'user_id' => $report->reporter_id,
+            'type' => 'report_'.$validated['status'],
+            'title' => $validated['status'] === 'resolved' ? 'Your report was resolved' : 'Your report was reviewed',
+            'body' => $validated['resolution_note'] ?? "Your {$report->category} report was {$validated['status']}.",
+            'is_read' => false,
+        ]);
+
+        return response()->json(['message' => "Report {$validated['status']}.", 'data' => $report->fresh()->load(['reporter', 'reportedUser', 'order'])]);
+    }
+
     // GET /api/admin/orders?status=&per_page= — for dispute/moderation
     public function orders(Request $request)
     {
         $q = Order::with(['buyer', 'farmer.farmerProfile', 'items.product'])
-            ->when($request->status, fn($qq) => $qq->where('status', $request->status))
-            ->when($request->search, fn($qq, $s) => $qq->whereHas('buyer', fn($b) => $b->where('name', 'like', "%{$s}%"))->orWhere('id', $s))
+            ->when($request->status, fn ($qq) => $qq->where('status', $request->status))
+            ->when($request->search, fn ($qq, $s) => $qq->whereHas('buyer', fn ($b) => $b->where('name', 'like', "%{$s}%"))->orWhere('id', $s))
             ->latest();
+
         return $q->paginate($request->get('per_page', 15));
     }
 }

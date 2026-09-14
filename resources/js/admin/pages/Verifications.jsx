@@ -18,6 +18,21 @@ export default function Verifications() {
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['verifications'] }); setNote('') },
   })
 
+  // Streams the document from the private disk with the admin token and opens it
+  // in a new tab — no public URL ever exists for verification documents.
+  const viewDocument = async (id) => {
+    try {
+      const res = await fetch(`/api/admin/verifications/${id}/document`, {
+        headers: { Authorization: `Bearer ${localStorage.getItem('anilink_admin_token')}` },
+      })
+      if (!res.ok) throw new Error(`Could not load document (${res.status})`)
+      const blob = await res.blob()
+      window.open(URL.createObjectURL(blob), '_blank')
+    } catch (err) {
+      alert(err.message)
+    }
+  }
+
   const list = data?.data || []
 
   return (
@@ -59,9 +74,15 @@ export default function Verifications() {
               </div>
               <div className="text-sm font-medium text-[#2E5339]">{p.farm_name} · {p.barangay}, {p.municipality}, {p.province}</div>
               <div className="text-xs text-[#8A8A8A] mt-0.5">
-                {p.bio || 'No bio yet'} · {p.verification_doc_path ? `Document uploaded: ${p.verification_doc_path}` : 'No document uploaded yet'}
+                {p.bio || 'No bio yet'} · {p.verification_doc_path ? 'Verification document uploaded' : 'No document uploaded yet'}
               </div>
               <div className="mt-3 flex flex-wrap gap-2">
+                {p.verification_doc_path && (
+                  <button onClick={() => viewDocument(p.id)}
+                    className="h-9 px-4 rounded-full bg-white border border-[#E8E2D6] text-[#2E5339] text-sm font-semibold hover:bg-[#FAF8F3] transition">
+                    View document
+                  </button>
+                )}
                 {p.verification_status !== 'approved' && (
                   <button disabled={isPending} onClick={() => mutate({ id: p.id, status: 'approved' })}
                     className="h-9 px-4 rounded-full bg-[#2E5339] text-white text-sm font-semibold hover:bg-[#24412D] disabled:opacity-60 inline-flex items-center gap-2 transition">

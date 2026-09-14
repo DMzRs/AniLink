@@ -1,5 +1,6 @@
 import React from 'react';
 import { View, Text, StyleSheet, Pressable, ActivityIndicator } from 'react-native';
+import { useNavigation } from '@react-navigation/native';
 import { colors } from '../theme/colors';
 import { typography } from '../theme/typography';
 import { spacing, radius } from '../theme/spacing';
@@ -7,6 +8,7 @@ import { useAuth } from '../context/AuthContext';
 
 export default function ProfilePlaceholder() {
   const { user, login, logout } = useAuth();
+  const navigation = useNavigation();
   const [busy, setBusy] = React.useState(null);
 
   const handleLogin = async (role) => {
@@ -38,6 +40,11 @@ export default function ProfilePlaceholder() {
         <Pressable onPress={() => handleLogin('farmer')} style={s.btnFarmer}>{busy === 'farmer' ? <ActivityIndicator color={colors.white} /> : <Text style={s.btnText}>Sign in as Farmer • lito</Text>}</Pressable>
         <Pressable onPress={() => handleLogin('buyer')} style={s.btnOutline}>{busy === 'buyer' ? <ActivityIndicator color={colors.forestGreen} /> : <Text style={s.btnOutlineText}>Sign in as Buyer • Maria</Text>}</Pressable>
         <Pressable onPress={() => handleLogin('biz')} style={s.btnGold}>{busy === 'biz' ? <ActivityIndicator color={colors.textPrimary} /> : <Text style={s.btnGoldText}>Sign in as Business • Tess</Text>}</Pressable>
+        {!user && (
+          <Pressable onPress={() => navigation.navigate('ForgotPassword')} style={s.btnGhost}>
+            <Text style={s.btnGhostText}>Forgot password?</Text>
+          </Pressable>
+        )}
         {user && <Pressable onPress={logout} style={s.btnGhost}><Text style={s.btnGhostText}>Sign out</Text></Pressable>}
       </View>
 

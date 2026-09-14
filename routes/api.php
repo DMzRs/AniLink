@@ -2,12 +2,19 @@
 
 use App\Http\Controllers\Api\AdminController;
 use App\Http\Controllers\Api\AuthController;
+use App\Http\Controllers\Api\FarmerDashboardController;
 use App\Http\Controllers\Api\OrderController;
+use App\Http\Controllers\Api\PasswordResetController;
+use App\Http\Controllers\Api\PredictController;
 use App\Http\Controllers\Api\ProductController;
 use App\Http\Controllers\Api\PushTokenController;
+use App\Http\Controllers\Api\QuoteController;
+use App\Http\Controllers\Api\ReportController;
+use App\Http\Controllers\Api\ReviewController;
 use App\Http\Controllers\Api\TwoFactorController;
 use App\Models\Category;
 use App\Models\Notification;
+use App\Models\Region;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
@@ -21,6 +28,8 @@ use Illuminate\Support\Facades\Route;
 Route::middleware('throttle:10,1')->group(function () {
     Route::post('/register', [AuthController::class, 'register']);
     Route::post('/login', [AuthController::class, 'login'])->middleware('throttle:5,1');
+    Route::post('/password/forgot', [PasswordResetController::class, 'forgot'])->middleware('throttle:5,1');
+    Route::post('/password/reset', [PasswordResetController::class, 'reset'])->middleware('throttle:5,1');
     Route::post('/2fa/verify', [AuthController::class, 'verifyTwoFactor'])->middleware('throttle:10,1');
     Route::post('/2fa/resend', [AuthController::class, 'resendTwoFactor'])->middleware('throttle:3,1');
 });
@@ -46,8 +55,11 @@ Route::middleware('auth:sanctum')->group(function () {
             Route::delete('/products/{product}', [ProductController::class, 'destroy']);
             Route::patch('/products/{product}/stock', [ProductController::class, 'adjustStock']);
             Route::get('/farmer/products', [ProductController::class, 'myProducts']);
-            Route::get('/farmer/dashboard', fn () => response()->json(['message' => 'Farmer dashboard', 'role' => 'farmer']));
-            Route::get('/farmer/orders', fn () => response()->json(['message' => 'Farmer order queue']));
+            Route::post('/farmer/verification-doc', [AuthController::class, 'uploadVerificationDoc']);
+            Route::get('/farmer/dashboard', [FarmerDashboardController::class, 'index']);
+            Route::get('/predict/insights', [PredictController::class, 'insights']);
+            Route::get('/farmer/quotes', [QuoteController::class, 'farmerIndex']);
+            Route::patch('/farmer/quotes/{quote}', [QuoteController::class, 'respond']);
         });
 
         // ── Orders / Cart / Checkout — Buyer + Farmer shared ──
@@ -55,6 +67,8 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/orders', [OrderController::class, 'index']);
         Route::get('/orders/{order}', [OrderController::class, 'show']);
         Route::patch('/orders/{order}/status', [OrderController::class, 'updateStatus']);
+        Route::post('/orders/{order}/review', [ReviewController::class, 'store']);
+        Route::post('/reports', [ReportController::class, 'store']);
         Route::post('/cart/validate', [OrderController::class, 'validateCart']);
 
         // Buyer routes (both individual and business can shop, but business has bulk quotes)
@@ -64,12 +78,16 @@ Route::middleware('auth:sanctum')->group(function () {
         });
 
         Route::middleware('role:buyer_business')->group(function () {
-            Route::get('/buyer/business/quotes', fn () => response()->json(['message' => 'B2B bulk quotes']));
+            Route::get('/quotes', [QuoteController::class, 'index']);
+            Route::post('/quotes', [QuoteController::class, 'store']);
+            Route::patch('/quotes/{quote}/accept', [QuoteController::class, 'accept']);
+            Route::patch('/quotes/{quote}/withdraw', [QuoteController::class, 'withdraw']);
         });
 
         // Admin routes (verification, moderation, analytics) — real controllers per spec
         Route::middleware('role:admin')->group(function () {
             Route::get('/admin/verifications', [AdminController::class, 'verifications']);
+            Route::get('/admin/verifications/{farmerProfile}/document', [AdminController::class, 'document']);
             Route::post('/admin/verifications/{farmerProfile}/decision', [AdminController::class, 'decideVerification']);
             Route::get('/admin/users', [AdminController::class, 'users']);
             Route::patch('/admin/users/{user}', [AdminController::class, 'moderateUser']);
@@ -77,6 +95,8 @@ Route::middleware('auth:sanctum')->group(function () {
             Route::patch('/admin/listings/{product}', [AdminController::class, 'moderateListing']);
             Route::get('/admin/analytics', [AdminController::class, 'analytics']);
             Route::get('/admin/orders', [AdminController::class, 'orders']);
+            Route::get('/admin/reports', [AdminController::class, 'reports']);
+            Route::patch('/admin/reports/{report}', [AdminController::class, 'handleReport']);
         });
 
         // Expo push token — tied to notifications table
@@ -106,6 +126,10 @@ Route::get('/products', [ProductController::class, 'index']);
 Route::get('/products/{product}', [ProductController::class, 'show']);
 Route::get('/categories', function () {
     return response()->json(Category::orderBy('name')->get(['id', 'name', 'slug']));
+});
+Route::get('/farmers/{farmer}/reviews', [ReviewController::class, 'forFarmer']);
+Route::get('/regions', function () {
+    return response()->json(Region::orderBy('name')->get(['id', 'name']));
 });
 
 // Health check for API

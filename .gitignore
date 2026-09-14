@@ -90,3 +90,6 @@ Thumbs.db
 # Coverage
 /coverage
 .nyc_output
+
+# Local coding-agent state (ZCode session files)
+.zcode/

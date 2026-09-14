@@ -185,6 +185,21 @@ class OrderApiTest extends TestCase
             ->assertStatus(422);
     }
 
+    public function test_terminal_states_have_no_outgoing_transitions_for_farmers(): void
+    {
+        $farmer = User::factory()->farmer()->create();
+        $cancelled = Order::factory()->for($farmer, 'farmer')->create(['status' => 'cancelled']);
+        $completed = Order::factory()->for($farmer, 'farmer')->create(['status' => 'completed']);
+
+        $this->actingAs($farmer)
+            ->patchJson("/api/orders/{$cancelled->id}/status", ['status' => 'confirmed'])
+            ->assertStatus(422);
+
+        $this->actingAs($farmer)
+            ->patchJson("/api/orders/{$completed->id}/status", ['status' => 'completed'])
+            ->assertStatus(422);
+    }
+
     public function test_outsider_cannot_view_order(): void
     {
         $order = Order::factory()->create();

@@ -15,7 +15,7 @@ function VerifiedBadge() {
 }
 
 export default function ProductCard({ product, onPress, onQuickAdd }) {
-  const lowStock = product.available_quantity <= 5;
+  const lowStock = Number(product.available_quantity ?? 0) <= 5;
   const categoryLabel = typeof product.category === 'string' ? product.category : product.category?.name ?? product.category?.slug ?? '';
   const categoryKey = categoryLabel;
   const imageUrl = product.image || product.images?.[0]?.url || null;
@@ -47,11 +47,11 @@ export default function ProductCard({ product, onPress, onQuickAdd }) {
         <Text style={s.name} numberOfLines={2}>{product.name}</Text>
         <Text style={s.price}>{perUnit(product.price_per_unit, product.unit_type)}</Text>
         <View style={s.farmerRow}>
-          <Text style={s.farmer} numberOfLines={1}>{product.farmer.farm_name}</Text>
-          {product.farmer.verified && <VerifiedBadge />}
+          <Text style={s.farmer} numberOfLines={1}>{product.farmer?.farm_name ?? '—'}</Text>
+          {product.farmer?.verified && <VerifiedBadge />}
         </View>
         <Text style={s.location} numberOfLines={1}>
-          {product.farmer.barangay} • {distanceLabel(product.farmer.distance_km)}
+          {product.farmer?.barangay ?? ''} • {distanceLabel(product.farmer?.distance_km)}
         </Text>
         <View style={s.metaRow}>
           <Text style={s.rating}>★ {Number(product.rating ?? 0).toFixed(1)} · {product.reviews ?? 0}</Text>

@@ -5,8 +5,11 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\Category;
 use App\Models\InventoryLog;
+use App\Models\Notification;
 use App\Models\Product;
 use App\Models\ProductImage;
+use App\Models\Region;
+use App\Services\ExpoPushService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
@@ -28,13 +31,20 @@ class ProductController extends Controller
             'municipality' => ['nullable', 'string', 'max:100'],
             'barangay' => ['nullable', 'string', 'max:100'],
             'verified_only' => ['nullable', 'boolean'],
+            'near' => ['nullable', 'string', 'max:100'],
             'sort' => ['nullable', 'in:fresh,distance,price_low,price_high'],
             'status' => ['nullable', 'in:available,sold_out,archived'],
             'per_page' => ['nullable', 'integer', 'min:1', 'max:50'],
         ]);
 
         $query = Product::query()
-            ->with(['farmer.farmerProfile', 'category', 'images'])
+            ->with([
+                'farmer' => fn ($q) => $q->with(['farmerProfile'])
+                    ->withCount('reviewsReceived')
+                    ->withAvg('reviewsReceived', 'rating'),
+                'category',
+                'images',
+            ])
             ->withCount('orderItems')
             ->where('status', $request->get('status', 'available'));
 
@@ -78,20 +88,45 @@ class ProductController extends Controller
             $query->whereHas('farmer.farmerProfile', fn ($q) => $q->where('verification_status', 'approved'));
         }
 
-        // Sorting per spec: freshness (harvest_date), distance (farmer location), price
+        // Sorting per spec: freshness (harvest_date), distance (farmer location), price.
+        // Distance needs a reference point: the `near` province (or the province filter).
         $sort = $request->get('sort', 'fresh');
+        $nearProvince = null;
+        if ($sort === 'distance') {
+            $nearProvince = $request->get('near') ?: $request->get('province');
+        }
+        $nearRegion = $nearProvince ? Region::where('name', $nearProvince)->first() : null;
+
         match ($sort) {
             'price_low' => $query->orderBy('price_per_unit', 'asc'),
             'price_high' => $query->orderBy('price_per_unit', 'desc'),
-            'distance' => $query->join('farmer_profiles', 'farmer_profiles.user_id', '=', 'products.farmer_id')
-                ->orderBy('farmer_profiles.municipality', 'asc')
-                ->orderBy('products.created_at', 'desc')
-                ->select('products.*'),
+            'distance' => $nearRegion
+                ? $query->join('farmer_profiles', 'farmer_profiles.user_id', '=', 'products.farmer_id')
+                    ->leftJoin('regions as farmer_region', 'farmer_region.name', '=', 'farmer_profiles.province')
+                    // Squared-degree distance: no trig functions, so SQLite (tests) and
+                    // MySQL (prod) order identically; monotonic enough within the PH latitudes.
+                    ->orderByRaw('CASE WHEN farmer_region.id IS NULL THEN 1 ELSE 0 END')
+                    ->orderByRaw('(farmer_region.latitude - ?) * (farmer_region.latitude - ?) + (farmer_region.longitude - ?) * (farmer_region.longitude - ?) ASC', [
+                        $nearRegion->latitude, $nearRegion->latitude, $nearRegion->longitude, $nearRegion->longitude,
+                    ])
+                    ->select('products.*')
+                : $query->orderBy('harvest_date', 'desc')->orderBy('created_at', 'desc'), // no reference point → freshness
             default => $query->orderBy('harvest_date', 'desc')->orderBy('created_at', 'desc'), // fresh
         };
 
         $perPage = $request->get('per_page', 20);
         $products = $query->paginate($perPage)->appends($request->query());
+
+        // Approximate km via province centroids (Haversine) for display
+        if ($nearRegion) {
+            $regions = Region::all()->keyBy('name');
+            $products->getCollection()->each(function (Product $p) use ($nearRegion, $regions) {
+                $farmerRegion = $regions->get($p->farmer?->farmerProfile?->province);
+                $p->distance_km = $farmerRegion
+                    ? (int) round($this->haversineKm($nearRegion, $farmerRegion))
+                    : null;
+            });
+        }
 
         // Transform to AniMarket shape expected by React Native
         $products->getCollection()->transform(fn (Product $p) => $this->transformProduct($p));
@@ -105,7 +140,13 @@ class ProductController extends Controller
         if ($product->status === 'archived') {
             abort(404);
         }
-        $product->load(['farmer.farmerProfile', 'category', 'images'])->loadCount('orderItems');
+        $product->load([
+            'farmer' => fn ($q) => $q->with(['farmerProfile'])
+                ->withCount('reviewsReceived')
+                ->withAvg('reviewsReceived', 'rating'),
+            'category',
+            'images',
+        ])->loadCount('orderItems');
 
         return response()->json(['data' => $this->transformProduct($product, true)]);
     }
@@ -246,6 +287,8 @@ class ProductController extends Controller
             'reason' => ['nullable', 'in:sale,restock,adjustment'],
         ]);
 
+        $previousQuantity = (float) $product->available_quantity;
+
         $product->available_quantity = max(0, $product->available_quantity + $validated['change_amount']);
         if ($product->available_quantity == 0) {
             $product->status = 'sold_out';
@@ -261,7 +304,40 @@ class ProductController extends Controller
             'created_by' => $request->user()->id,
         ]);
 
+        // Low-stock alert fires only on the tap that CROSSES the threshold —
+        // one heads-up per dip instead of one per stock tap; restocking above
+        // the threshold re-arms it.
+        if ($previousQuantity > Product::LOW_STOCK_THRESHOLD && $product->available_quantity <= Product::LOW_STOCK_THRESHOLD) {
+            $notification = Notification::create([
+                'user_id' => $request->user()->id,
+                'type' => 'low_stock',
+                'title' => (float) $product->available_quantity === 0.0 ? "{$product->name} is sold out" : "Low stock: {$product->name}",
+                'body' => (float) $product->available_quantity === 0.0
+                    ? "You've sold out of {$product->name}. Restock to keep the listing live."
+                    : "Only {$product->available_quantity} {$product->unit_type} of {$product->name} left. Restock soon.",
+                'is_read' => false,
+            ]);
+
+            try {
+                ExpoPushService::sendForNotification($notification);
+            } catch (\Throwable $e) {
+            }
+        }
+
         return response()->json(['message' => 'Stock updated.', 'data' => $this->transformProduct($product->fresh(['category', 'images', 'farmer.farmerProfile']))]);
+    }
+
+    /**
+     * Great-circle distance between two regions via their province centroids (km).
+     */
+    private function haversineKm(Region $a, Region $b): float
+    {
+        $earthRadius = 6371;
+        $dLat = deg2rad((float) $b->latitude - (float) $a->latitude);
+        $dLon = deg2rad((float) $b->longitude - (float) $a->longitude);
+        $h = sin($dLat / 2) ** 2 + cos(deg2rad((float) $a->latitude)) * cos(deg2rad((float) $b->latitude)) * sin($dLon / 2) ** 2;
+
+        return $earthRadius * 2 * asin(min(1.0, sqrt($h)));
     }
 
     private function authorizeOwner(Request $request, Product $product): void
@@ -276,6 +352,7 @@ class ProductController extends Controller
         $farmer = $p->farmer;
         $profile = $farmer?->farmerProfile;
         $primaryImage = $p->images->firstWhere('is_primary', true) ?? $p->images->first();
+        $farmerRating = $farmer?->reviews_received_avg_rating !== null ? round((float) $farmer->reviews_received_avg_rating, 2) : null;
         $base = [
             'id' => $p->id,
             'name' => $p->name,
@@ -300,9 +377,11 @@ class ProductController extends Controller
                 'province' => $profile?->province,
                 'verified' => $profile?->verification_status === 'approved',
                 'verification_status' => $profile?->verification_status,
-                'distance_km' => null, // Filled by client or future geo; distance sort uses municipality alphabetical for now
+                'rating_avg' => $farmerRating,
+                'rating_count' => $farmer?->reviews_received_count ?? null,
+                'distance_km' => $p->distance_km ?? null, // set when sort=distance with a `near` province
             ] : null,
-            'rating' => 4.7, // placeholder until per-farmer reviews are surfaced on listings
+            'rating' => $farmerRating, // real farmer average, replacing the old hardcoded placeholder
             'reviews' => $p->order_items_count ?? $p->orderItems()->count(),
             'created_at' => $p->created_at,
         ];

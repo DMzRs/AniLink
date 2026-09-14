@@ -5,6 +5,7 @@ import { CartProvider } from './lib/cart'
 import Layout from './components/Layout'
 import Login from './pages/Login'
 import Register from './pages/Register'
+import ForgotPassword from '../shared/ForgotPassword'
 import Browse from './pages/Browse'
 import ProductDetail from './pages/ProductDetail'
 import Cart from './pages/Cart'
@@ -40,6 +41,7 @@ export default function App() {
             <Routes>
               <Route path="/login" element={<Login />} />
               <Route path="/register" element={<Register />} />
+              <Route path="/forgot-password" element={<ForgotPassword loginPath="/login" />} />
               <Route path="/" element={<Layout><Browse /></Layout>} />
               <Route path="/products/:id" element={<Layout><ProductDetail /></Layout>} />
               <Route path="/cart" element={<Layout><Cart /></Layout>} />

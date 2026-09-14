@@ -73,7 +73,7 @@ export default function InventoryScreen({ navigation }) {
       setUsingMock(false);
     } catch (e) {
       // rural connectivity fallback — show cached mockProducts filtered to demo farmer
-      setProducts(mockProducts.filter((p) => p.farmer.name.includes('Lito') || p.farmer.verified));
+      setProducts(mockProducts.filter((p) => p.farmer?.name?.includes('Lito') || p.farmer?.verified));
       setUsingMock(true);
     } finally {
       setLoading(false);
@@ -140,7 +140,7 @@ export default function InventoryScreen({ navigation }) {
         setProducts((l) => l.map((p) => (p.id === product.id ? { ...p, status: isSoldOut ? 'available' : 'sold_out', available_quantity: isSoldOut ? Math.max(5, Number(p.available_quantity)) : 0 } : p)));
         return;
       }
-      const res = await updateProduct(product.id, { status: isSoldOut ? 'available' : 'sold_out', available_quantity: isSoldOut ? undefined : 0 });
+      const res = await updateProduct(product.id, { status: isSoldOut ? 'available' : 'sold_out', available_quantity: isSoldOut ? Math.max(10, Number(product.available_quantity) || 0) : 0 });
       const updated = res.data ?? res;
       setProducts((l) => l.map((p) => (p.id === updated.id ? updated : p)));
     } catch (e) {
@@ -185,7 +185,7 @@ export default function InventoryScreen({ navigation }) {
       if (pickedImages.length > 0) {
         const fd = new FormData();
         fd.append('name', form.name.trim());
-        fd.append('category_id', String(Number(form.category_id)));
+        fd.append('category_id', String(form.category_id).trim());
         fd.append('unit_type', form.unit_type);
         fd.append('price_per_unit', String(Number(form.price_per_unit)));
         fd.append('available_quantity', String(Number(form.available_quantity)));
@@ -258,6 +258,13 @@ export default function InventoryScreen({ navigation }) {
         ListHeaderComponent={
           <View style={{ gap: spacing.md }}>
             <SummaryCard daily={daily} weekly={weekly} pendingCount={pendingCount} />
+            <Pressable onPress={() => navigation.navigate('Predict')} style={s.predictCard}>
+              <View style={{ flex: 1, gap: 2 }}>
+                <Text style={s.predictEyebrow}>ANI-PREDICT • MARKET INSIGHTS</Text>
+                <Text style={s.predictText}>Price trends, demand forecast and the best time to sell your harvests.</Text>
+              </View>
+              <Text style={s.predictArrow}>›</Text>
+            </Pressable>
             {usingMock && <View style={s.offlineBanner}><Text style={s.offlineText}>Offline — cached harvests • stock changes will sync (per spec offline queuing)</Text></View>}
             {lowStock.length > 0 && (
               <View style={s.alertCard}>
@@ -454,4 +461,8 @@ const s = StyleSheet.create({
   pickBtnText: { ...typography.bodyMedium, color: colors.forestGreen },
   empty: { padding: 32, alignItems: 'center' },
   emptyText: { ...typography.body, color: colors.textMuted, textAlign: 'center' },
+  predictCard: { backgroundColor: colors.forestGreen, borderRadius: radius.md, padding: spacing.md, flexDirection: 'row', alignItems: 'center', gap: spacing.sm, ...shadow.card },
+  predictEyebrow: { fontSize: 10, fontFamily: 'Poppins_600SemiBold', letterSpacing: 0.6, color: 'rgba(255,255,255,0.75)' },
+  predictText: { ...typography.caption, color: colors.white, lineHeight: 17 },
+  predictArrow: { fontSize: 26, color: colors.white, fontFamily: 'Poppins_600SemiBold' },
 });

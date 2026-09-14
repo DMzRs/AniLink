@@ -8,36 +8,48 @@ export function AuthProvider({ children }) {
     try { return JSON.parse(localStorage.getItem('anilink_manage_user') || 'null') } catch { return null }
   })
   const [token, setToken] = useState(() => localStorage.getItem('anilink_manage_token'))
+  const [pendingToken, setPendingToken] = useState(null)
+  const [pendingEmail, setPendingEmail] = useState(null)
+
+  const persist = (t, u) => {
+    localStorage.setItem('anilink_manage_token', t)
+    localStorage.setItem('anilink_manage_user', JSON.stringify(u))
+    setToken(t)
+    setUser(u)
+  }
 
   const login = async (email, password) => {
     const res = await api.login(email, password)
-    let t = res.token || res.pending_token
-    if (!t) throw new Error(res.message || 'Login failed')
     if (res.two_factor_required) {
       if (res.code_hint && res.pending_token) {
-        const v = await fetch('/api/2fa/verify', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${res.pending_token}` },
-          body: JSON.stringify({ code: res.code_hint }),
-        }).then(r => r.json())
+        const v = await api.verifyTwoFactor(res.code_hint, { pendingToken: res.pending_token })
         if (!v.token) throw new Error('2FA failed')
-        t = v.token
-        localStorage.setItem('anilink_manage_token', t)
-        localStorage.setItem('anilink_manage_user', JSON.stringify(v.user))
-        setToken(t); setUser(v.user); return v
+        persist(v.token, v.user)
+        return v
       }
-      throw new Error('2FA required')
+      setPendingToken(res.pending_token || null)
+      setPendingEmail(email)
+      return res
     }
-    localStorage.setItem('anilink_manage_token', t)
-    localStorage.setItem('anilink_manage_user', JSON.stringify(res.user))
-    setToken(t); setUser(res.user)
+    const t = res.token || res.pending_token
+    if (!t) throw new Error(res.message || 'Login failed')
+    persist(t, res.user)
     return res
+  }
+
+  const verifyTwoFactor = async (code) => {
+    const v = await api.verifyTwoFactor(code, { pendingToken, email: pendingEmail })
+    setPendingToken(null)
+    setPendingEmail(null)
+    persist(v.token, v.user)
+    return v
   }
 
   const logout = () => {
     localStorage.removeItem('anilink_manage_token')
     localStorage.removeItem('anilink_manage_user')
     setToken(null); setUser(null)
+    setPendingToken(null); setPendingEmail(null)
   }
 
   useEffect(() => {
@@ -46,7 +58,7 @@ export function AuthProvider({ children }) {
     }
   }, [])
 
-  return <Ctx.Provider value={{ user, token, login, logout }}>{children}</Ctx.Provider>
+  return <Ctx.Provider value={{ user, token, pendingToken, pendingEmail, login, verifyTwoFactor, logout }}>{children}</Ctx.Provider>
 }
 
 export const useAuth = () => useContext(Ctx)

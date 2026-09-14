@@ -17,6 +17,14 @@ export default function CheckoutScreen({ navigation }) {
   const [placing, setPlacing] = useState(false);
   const [apiStatus, setApiStatus] = useState(null);
 
+  // Checkout lives in HomeStack; OrdersTab is a sibling tab. Route through the
+  // parent tab navigator — a direct navigate('OrdersTab') has no such route here.
+  const goOrders = () => {
+    const parent = navigation.getParent?.();
+    if (parent?.navigate) parent.navigate('OrdersTab');
+    else navigation.navigate('OrdersTab');
+  };
+
   const placeOrder = async () => {
     if (!address.trim() && fulfillment === 'delivery') { Alert.alert('Add delivery address', 'Needed for delivery. For pickup, we will share farm location.'); return; }
     if (items.length === 0) { Alert.alert('Basket empty', 'Add harvests first.'); return; }
@@ -41,7 +49,7 @@ export default function CheckoutScreen({ navigation }) {
         Alert.alert(
           'Order placed — salamat!',
           `${items.length} items • ${orderType === 'bulk' ? 'Bulk quote requested' : peso(total)} • ${fulfillment === 'delivery' ? 'Delivery' : 'Pickup'} — API: ${ids || 'confirmed'} — farmer will confirm within the hour.`,
-          [{ text: 'View orders', onPress: () => { clear(); navigation.navigate('OrdersTab'); } }, { text: 'Back to market', onPress: () => { clear(); navigation.navigate('Feed'); } }]
+          [{ text: 'View orders', onPress: () => { clear(); goOrders(); } }, { text: 'Back to market', onPress: () => { clear(); navigation.navigate('Feed'); } }]
         );
         return;
       }
@@ -52,7 +60,7 @@ export default function CheckoutScreen({ navigation }) {
       Alert.alert(
         'Order queued — salamat!',
         `${items.length} items • ${orderType === 'bulk' ? 'Bulk quote requested' : peso(total)} • ${fulfillment === 'delivery' ? 'Delivery' : 'Pickup'} — will sync when online (per spec offline queuing).`,
-        [{ text: 'View orders', onPress: () => { clear(); navigation.navigate('OrdersTab'); } }, { text: 'Back to market', onPress: () => { clear(); navigation.navigate('Feed'); } }]
+        [{ text: 'View orders', onPress: () => { clear(); goOrders(); } }, { text: 'Back to market', onPress: () => { clear(); navigation.navigate('Feed'); } }]
       );
     } finally {
       setPlacing(false);

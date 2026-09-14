@@ -3,6 +3,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { AuthProvider, useAuth } from './lib/auth'
 import Layout from './components/Layout'
 import Login from './pages/Login'
+import ForgotPassword from '../shared/ForgotPassword'
 import Inventory from './pages/Inventory'
 import Orders from './pages/Orders'
 
@@ -24,6 +25,7 @@ export default function App() {
         <BrowserRouter basename="/manage">
           <Routes>
             <Route path="/login" element={<Login />} />
+            <Route path="/forgot-password" element={<ForgotPassword loginPath="/login" />} />
             <Route path="/" element={<RequireFarmer><Layout><Inventory /></Layout></RequireFarmer>} />
             <Route path="/orders" element={<RequireFarmer><Layout><Orders /></Layout></RequireFarmer>} />
             <Route path="*" element={<Navigate to="/" replace />} />

@@ -11,6 +11,10 @@ class Product extends Model
 {
     use HasFactory;
 
+    // Single source of truth for "low stock" — mobile ProductDetail and web
+    // AniManage both already treat <= 5 as low.
+    public const LOW_STOCK_THRESHOLD = 5;
+
     protected $fillable = [
         'farmer_id',
         'category_id',
@@ -59,5 +63,16 @@ class Product extends Model
     public function inventoryLogs(): HasMany
     {
         return $this->hasMany(InventoryLog::class);
+    }
+
+    public function scopeLowStock($query)
+    {
+        return $query->where('status', '!=', 'archived')
+            ->where('available_quantity', '<=', self::LOW_STOCK_THRESHOLD);
+    }
+
+    public function isLowStock(): bool
+    {
+        return $this->status !== 'archived' && (float) $this->available_quantity <= self::LOW_STOCK_THRESHOLD;
     }
 }
